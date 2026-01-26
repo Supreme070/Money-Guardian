@@ -171,15 +171,182 @@
 
 ## Architecture
 
-**Pattern:** Monolith-first, clean architecture
+**Pattern:** Monolith-first, clean architecture, multi-tenant, API-first
 
 ```
 Mobile (Flutter) → Backend (FastAPI) → PostgreSQL + Redis
-                         ↓
-              External APIs (Plaid, Gmail, Stripe)
+       ↑                  ↓
+       │       External APIs (Plaid, Gmail, Stripe)
+       │
+       └── NEVER accesses DB directly. Always through Backend API.
 ```
 
 See `MONEY_GUARDIAN_IMPLEMENTATION_PLAN.md` for full architecture details.
+
+---
+
+## 🚨 CRITICAL ARCHITECTURE RULES
+
+### 1. API-First: Mobile NEVER Touches Database
+
+```
+✅ CORRECT:
+Mobile App → REST API (FastAPI) → Database
+
+❌ WRONG:
+Mobile App → Database (Firebase Firestore, direct SQL, etc.)
+```
+
+**All data flows through the backend API.** The mobile app:
+- Calls REST endpoints only
+- Never imports database drivers
+- Never has DB connection strings
+- Never executes raw queries
+
+### 2. Strict Typing: NO `any`, `unknown`, or `dynamic`
+
+**Dart (Flutter):**
+```dart
+// ❌ NEVER
+dynamic data = response.data;
+var something = json['field'];
+Object? thing;
+
+// ✅ ALWAYS
+final UserModel user = UserModel.fromJson(response.data);
+final String name = json['name'] as String;
+final Subscription? subscription;
+```
+
+**Python (FastAPI) - Use Pydantic (like Zod):**
+```python
+# ❌ NEVER
+def get_user(data: dict) -> dict:
+    return data
+
+def process(payload: Any) -> Any:
+    pass
+
+# ✅ ALWAYS - Pydantic models (Zod pattern)
+from pydantic import BaseModel
+
+class UserResponse(BaseModel):
+    id: str
+    email: str
+    tenant_id: str
+
+def get_user(user_id: str) -> UserResponse:
+    return UserResponse(id=user_id, email="...", tenant_id="...")
+```
+
+**TypeScript (if used) - Use Zod:**
+```typescript
+// ❌ NEVER
+const data: any = response.json();
+function process(input: unknown): unknown {}
+
+// ✅ ALWAYS
+import { z } from 'zod';
+
+const UserSchema = z.object({
+  id: z.string().uuid(),
+  email: z.string().email(),
+  tenantId: z.string().uuid(),
+});
+
+type User = z.infer<typeof UserSchema>;
+const user = UserSchema.parse(response.json());
+```
+
+### 3. Multi-Tenant Architecture
+
+**Every request must be tenant-scoped. No exceptions.**
+
+```python
+# ❌ NEVER - Query without tenant filter
+def get_subscriptions(db: Session) -> list[Subscription]:
+    return db.query(Subscription).all()  # DANGER: Returns ALL tenants!
+
+# ✅ ALWAYS - Tenant-scoped queries
+def get_subscriptions(db: Session, tenant_id: str) -> list[Subscription]:
+    return db.query(Subscription).filter(
+        Subscription.tenant_id == tenant_id
+    ).all()
+```
+
+**Tenant Isolation Rules:**
+| Layer | How to Enforce |
+|-------|----------------|
+| **API Routes** | Extract `tenant_id` from JWT, pass to all services |
+| **Services** | Require `tenant_id` parameter on all methods |
+| **Repositories** | Filter ALL queries by `tenant_id` |
+| **Database** | Every table has `tenant_id` column (indexed) |
+
+**Database Schema Pattern:**
+```sql
+-- Every table MUST have tenant_id
+CREATE TABLE subscriptions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id),  -- REQUIRED
+    user_id UUID NOT NULL REFERENCES users(id),
+    name VARCHAR(255) NOT NULL,
+    amount DECIMAL(10,2) NOT NULL,
+    -- ...
+    created_at TIMESTAMP DEFAULT NOW(),
+
+    -- Composite index for tenant queries
+    INDEX idx_subscriptions_tenant (tenant_id, user_id)
+);
+```
+
+**JWT Must Contain Tenant:**
+```python
+# Token payload
+{
+    "sub": "user-uuid",
+    "tenant_id": "tenant-uuid",  # REQUIRED
+    "email": "user@example.com",
+    "exp": 1234567890
+}
+```
+
+### 4. Request/Response Validation
+
+**Every endpoint must validate input and output:**
+
+```python
+from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends
+
+class CreateSubscriptionRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    amount: float = Field(..., gt=0)
+    billing_cycle: Literal["weekly", "monthly", "yearly"]
+    next_billing_date: date
+
+class SubscriptionResponse(BaseModel):
+    id: str
+    tenant_id: str
+    name: str
+    amount: float
+    billing_cycle: str
+    next_billing_date: date
+    created_at: datetime
+
+    class Config:
+        from_attributes = True  # Pydantic v2
+
+@router.post("/subscriptions", response_model=SubscriptionResponse)
+async def create_subscription(
+    request: CreateSubscriptionRequest,
+    current_user: User = Depends(get_current_user),  # Has tenant_id
+) -> SubscriptionResponse:
+    # tenant_id comes from authenticated user
+    return subscription_service.create(
+        tenant_id=current_user.tenant_id,
+        data=request
+    )
+```
 
 ---
 
@@ -323,29 +490,42 @@ import 'package:money_guardian/domain/entities/pulse.dart';
 
 **Approach:** Option A - Building on existing template
 **Template:** flutter_wallet_app (BSD-2-Clause)
-**Status:** UI shell complete, architecture layers needed
+**Status:** UI complete with mock data, needs backend + real data integration
+**Repo:** https://github.com/Supreme070/Money-Guardian
 
 ### What's Done
-- [x] iOS/Android configurations
-- [x] Brand colors defined
-- [x] Font setup (Mulish)
-- [x] Package ID set (com.moneyguardian.app)
-- [x] 2 basic screens (HomePage, MoneyTransferPage)
-- [x] 4 reusable widgets
-- [x] Basic routing
-- [x] Clean Architecture folder structure created
-- [x] Dependencies added (flutter_bloc, get_it, dio, firebase, plaid, etc.)
-- [x] Core layer created:
-  - [x] Dependency injection (GetIt + Injectable)
-  - [x] Error handling (Failures + Exceptions)
-  - [x] Network layer (ApiClient, Interceptors, NetworkInfo)
-  - [x] Storage layer (SecureStorage, Preferences)
-  - [x] Utils (CurrencyFormatter, DateFormatter, Validators)
 
-### What's Next
-- [ ] Create domain layer (entities, repositories, use cases)
-- [ ] Create data layer (models, data sources, repo implementations)
-- [ ] Set up Firebase project
-- [ ] Create auth flow (login/register screens + BLoC)
-- [ ] Migrate existing HomePage to use BLoC
-- [ ] Implement Daily Pulse feature
+**Infrastructure:**
+- [x] iOS/Android configurations
+- [x] Brand colors defined (`light_color.dart`)
+- [x] Font setup (Mulish via Google Fonts)
+- [x] Package ID set (`com.moneyguardian.app`)
+- [x] GitHub repo created and pushed
+- [x] Clean Architecture folder structure
+- [x] Core layer (DI, network, storage, utils)
+
+**UI Pages (all 4 main screens):**
+- [x] Daily Pulse (Home) - PulseStatusCard, quick stats, next 7 days
+- [x] Subscriptions Hub - list with AI flags, filter/sort, monthly total
+- [x] Calendar - month view with charge markers, day detail
+- [x] Alerts Center - severity levels, unread badges, alert cards
+
+**Widgets:**
+- [x] `PulseStatusCard` - SAFE/CAUTION/FREEZE with safe-to-spend
+- [x] `SubscriptionCard` - with AI flags (unused, duplicate, price increase, etc.)
+- [x] `UpcomingSubscriptionItem` - compact list item
+- [x] `BottomNavigation` - 4 tabs (Home, Subs, Calendar, Alerts)
+
+### What's Next (Priority Order)
+
+**Backend (must come first - mobile calls API, not DB):**
+- [ ] FastAPI project setup with Pydantic models
+- [ ] PostgreSQL + multi-tenant schema (tenant_id on all tables)
+- [ ] Auth endpoints (Firebase Auth + JWT with tenant_id)
+- [ ] Core API endpoints (subscriptions, alerts, pulse)
+
+**Mobile Integration:**
+- [ ] Domain layer (entities, repository interfaces)
+- [ ] Data layer (API models, remote data sources)
+- [ ] BLoCs for each feature
+- [ ] Connect UI to real API endpoints

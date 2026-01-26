@@ -538,11 +538,14 @@ Step 3 of 3: Connect Email (Optional)
 | Android Configuration | ✅ Complete | Package: com.moneyguardian.app |
 | Brand Colors | ✅ Complete | Navy, Blue, Gold + Status colors |
 | Typography | ✅ Complete | Mulish via Google Fonts |
-| UI Shell | ✅ Complete | 2 screens, 4 widgets (hardcoded data) |
-| Architecture Layers | 🔄 Next | Need core/data/domain/presentation |
-| State Management | 🔄 Next | flutter_bloc to be added |
+| GitHub Repo | ✅ Complete | github.com/Supreme070/Money-Guardian |
+| UI Pages | ✅ Complete | Home, Subscriptions, Calendar, Alerts (mock data) |
+| Core Widgets | ✅ Complete | PulseStatusCard, SubscriptionCard, BottomNav |
+| Core Layer | ✅ Complete | DI, network, storage, utils |
+| Backend API | 🔄 **NEXT** | FastAPI + PostgreSQL + multi-tenant |
+| Mobile Integration | ⏳ Waiting | Needs backend API first |
 
-**Safeguards:** Architecture rules documented in `CLAUDE.md` to prevent tech debt when building on template.
+**Critical Rules:** API-first (no direct DB), strict typing (no `any`), multi-tenant (tenant_id everywhere). See Section 4.3.
 
 ### Architecture Quality Assessment
 
@@ -798,7 +801,110 @@ This architecture follows 2025-2026 fintech best practices:
 
 ---
 
-### 4.3 Full System Architecture
+### 4.3 🚨 CRITICAL ARCHITECTURE RULES
+
+> **These rules are NON-NEGOTIABLE. Violations will cause security issues and tech debt.**
+
+#### Rule 1: API-First — Mobile NEVER Touches Database
+
+```
+✅ CORRECT:
+Mobile App → REST API (FastAPI) → Database
+
+❌ WRONG:
+Mobile App → Database (Firebase Firestore, direct SQL, etc.)
+```
+
+**The mobile app:**
+- Calls REST endpoints ONLY
+- Never imports database drivers
+- Never has DB connection strings
+- Never executes raw queries
+- Never uses Firebase Firestore directly
+
+#### Rule 2: Strict Typing — NO `any`, `unknown`, `dynamic`, or `dict`
+
+**Python (FastAPI) — Use Pydantic:**
+```python
+# ❌ NEVER
+def get_user(data: dict) -> dict:
+def process(payload: Any) -> Any:
+
+# ✅ ALWAYS — Pydantic models
+class UserResponse(BaseModel):
+    id: str
+    email: str
+    tenant_id: str
+
+def get_user(user_id: str) -> UserResponse:
+```
+
+**Dart (Flutter) — Explicit types:**
+```dart
+// ❌ NEVER
+dynamic data = response.data;
+var something = json['field'];
+
+// ✅ ALWAYS
+final UserModel user = UserModel.fromJson(response.data);
+final String name = json['name'] as String;
+```
+
+#### Rule 3: Multi-Tenant Architecture — tenant_id EVERYWHERE
+
+**Every request must be tenant-scoped. No exceptions.**
+
+```python
+# ❌ NEVER — Query without tenant filter
+def get_subscriptions(db: Session) -> list[Subscription]:
+    return db.query(Subscription).all()  # DANGER: Returns ALL tenants!
+
+# ✅ ALWAYS — Tenant-scoped queries
+def get_subscriptions(db: Session, tenant_id: str) -> list[Subscription]:
+    return db.query(Subscription).filter(
+        Subscription.tenant_id == tenant_id
+    ).all()
+```
+
+**Enforcement by Layer:**
+| Layer | How to Enforce |
+|-------|----------------|
+| **JWT Token** | Contains `tenant_id` claim |
+| **API Routes** | Extract `tenant_id` from JWT, pass to services |
+| **Services** | Require `tenant_id` parameter on ALL methods |
+| **Repositories** | Filter ALL queries by `tenant_id` |
+| **Database** | Every table has `tenant_id` column (indexed) |
+
+**Database Schema Pattern:**
+```sql
+CREATE TABLE subscriptions (
+    id UUID PRIMARY KEY,
+    tenant_id UUID NOT NULL,  -- REQUIRED on every table
+    user_id UUID NOT NULL,
+    -- ... other fields
+    CONSTRAINT fk_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id)
+);
+CREATE INDEX idx_subscriptions_tenant ON subscriptions(tenant_id);
+```
+
+#### Rule 4: Request/Response Validation
+
+Every endpoint validates input AND output:
+```python
+@router.post("/subscriptions", response_model=SubscriptionResponse)
+async def create_subscription(
+    request: CreateSubscriptionRequest,  # Validated input
+    current_user: User = Depends(get_current_user),
+) -> SubscriptionResponse:  # Validated output
+    return subscription_service.create(
+        tenant_id=current_user.tenant_id,
+        data=request
+    )
+```
+
+---
+
+### 4.4 Full System Architecture
 
 ```
 ╔═══════════════════════════════════════════════════════════════════════════════╗
@@ -2905,19 +3011,23 @@ class EncryptionService:
 
 | Task | Status | Assignee | Notes |
 |------|--------|----------|-------|
-| Initialize FastAPI project | [ ] Not Started | - | - |
-| Set up PostgreSQL database | [ ] Not Started | - | - |
+| Initialize FastAPI project | [ ] Not Started | - | **NEXT: Backend first** |
+| Set up PostgreSQL database | [ ] Not Started | - | With multi-tenant schema |
 | Configure Alembic migrations | [ ] Not Started | - | - |
 | Set up Redis | [ ] Not Started | - | - |
 | Initialize Flutter project | [x] Complete | - | Built on flutter_wallet_app template |
-| Configure Firebase project | [ ] Not Started | - | - |
-| Set up GitHub repo + CI/CD | [ ] Not Started | - | - |
+| Configure Firebase project | [ ] Not Started | - | Auth only (not Firestore) |
+| Set up GitHub repo + CI/CD | [x] Complete | - | github.com/Supreme070/Money-Guardian |
 | Create .env.example | [ ] Not Started | - | - |
 | Docker compose setup | [ ] Not Started | - | - |
 
 **Week 1 Progress: 2/9 tasks (22%)**
 
-> **Additional work completed:** Clean Architecture folder structure + core layer (DI, network, storage, utils) - see CLAUDE.md
+> **Additional work completed (mobile UI - jumped to Week 6-7):**
+> - Clean Architecture folder structure + core layer
+> - All 4 main UI pages (Home, Subscriptions, Calendar, Alerts)
+> - Custom widgets (PulseStatusCard, SubscriptionCard, UpcomingItem, BottomNav)
+> - **UI is complete with mock data — now needs backend to provide real data**
 
 #### Week 2: Authentication
 
