@@ -1,0 +1,59 @@
+# macOS
+.DS_Store
+*.swp
+*~
+._*
+
+# Microsoft Office temp files
+~$*
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Flutter/Dart
+mobile/.dart_tool/
+mobile/.packages
+mobile/.pub-cache/
+mobile/.pub/
+mobile/build/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+
+# iOS
+mobile/ios/Pods/
+mobile/ios/.symlinks/
+mobile/ios/Flutter/Flutter.framework
+mobile/ios/Flutter/Flutter.podspec
+mobile/ios/Flutter/Generated.xcconfig
+mobile/ios/Flutter/ephemeral/
+mobile/ios/Flutter/App.framework
+mobile/ios/Runner/GeneratedPluginRegistrant.*
+
+# Android
+mobile/android/.gradle/
+mobile/android/local.properties
+mobile/android/*.iml
+mobile/android/key.properties
+mobile/android/**/*.keystore
+mobile/android/app/debug/
+mobile/android/app/profile/
+mobile/android/app/release/
+
+# Build outputs
+*.apk
+*.aab
+*.ipa
+*.app
+
+# Environment files
+.env
+.env.*
+*.env
+
+# Logs
+*.log
+
+# Coverage
+coverage/
