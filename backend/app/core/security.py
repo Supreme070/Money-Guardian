@@ -3,16 +3,52 @@
 from datetime import datetime, timedelta, timezone
 from typing import Literal
 from uuid import UUID
+import base64
+import hashlib
 
+import bcrypt
+from cryptography.fernet import Fernet
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 from pydantic import BaseModel
 
 from app.core.config import settings
 
 
-# Password hashing
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# -----------------------------------------------------------------------------
+# Token Encryption (for sensitive data like Plaid access tokens)
+# -----------------------------------------------------------------------------
+
+def _get_encryption_key() -> bytes:
+    """
+    Derive a Fernet-compatible key from JWT secret.
+
+    Fernet requires a 32-byte base64-encoded key.
+    We derive this from the JWT secret using SHA-256.
+    """
+    key_bytes = hashlib.sha256(settings.jwt_secret_key.encode()).digest()
+    return base64.urlsafe_b64encode(key_bytes)
+
+
+def encrypt_sensitive_data(plaintext: str) -> str:
+    """
+    Encrypt sensitive data (e.g., Plaid access tokens).
+
+    Returns base64-encoded encrypted string.
+    """
+    fernet = Fernet(_get_encryption_key())
+    encrypted = fernet.encrypt(plaintext.encode())
+    return encrypted.decode()
+
+
+def decrypt_sensitive_data(ciphertext: str) -> str:
+    """
+    Decrypt sensitive data.
+
+    Returns original plaintext string.
+    """
+    fernet = Fernet(_get_encryption_key())
+    decrypted = fernet.decrypt(ciphertext.encode())
+    return decrypted.decode()
 
 
 class TokenPayload(BaseModel):
@@ -22,8 +58,8 @@ class TokenPayload(BaseModel):
     tenant_id: str
     email: str
     token_type: Literal["access", "refresh"]
-    exp: datetime
-    iat: datetime
+    exp: int  # Unix timestamp
+    iat: int  # Unix timestamp
 
 
 class TokenPair(BaseModel):
@@ -36,12 +72,18 @@ class TokenPair(BaseModel):
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a password against its hash."""
-    return pwd_context.verify(plain_password, hashed_password)
+    return bcrypt.checkpw(
+        plain_password.encode("utf-8"),
+        hashed_password.encode("utf-8"),
+    )
 
 
 def get_password_hash(password: str) -> str:
-    """Hash a password."""
-    return pwd_context.hash(password)
+    """Hash a password using bcrypt."""
+    return bcrypt.hashpw(
+        password.encode("utf-8"),
+        bcrypt.gensalt(),
+    ).decode("utf-8")
 
 
 def create_access_token(
@@ -53,17 +95,18 @@ def create_access_token(
     now = datetime.now(timezone.utc)
     expire = now + timedelta(minutes=settings.jwt_access_token_expire_minutes)
 
-    payload = TokenPayload(
-        sub=str(user_id),
-        tenant_id=str(tenant_id),
-        email=email,
-        token_type="access",
-        exp=expire,
-        iat=now,
-    )
+    # Use dict with Unix timestamps for JWT compatibility
+    payload = {
+        "sub": str(user_id),
+        "tenant_id": str(tenant_id),
+        "email": email,
+        "token_type": "access",
+        "exp": int(expire.timestamp()),
+        "iat": int(now.timestamp()),
+    }
 
     return jwt.encode(
-        payload.model_dump(mode="json"),
+        payload,
         settings.jwt_secret_key,
         algorithm=settings.jwt_algorithm,
     )
@@ -78,17 +121,18 @@ def create_refresh_token(
     now = datetime.now(timezone.utc)
     expire = now + timedelta(days=settings.jwt_refresh_token_expire_days)
 
-    payload = TokenPayload(
-        sub=str(user_id),
-        tenant_id=str(tenant_id),
-        email=email,
-        token_type="refresh",
-        exp=expire,
-        iat=now,
-    )
+    # Use dict with Unix timestamps for JWT compatibility
+    payload = {
+        "sub": str(user_id),
+        "tenant_id": str(tenant_id),
+        "email": email,
+        "token_type": "refresh",
+        "exp": int(expire.timestamp()),
+        "iat": int(now.timestamp()),
+    }
 
     return jwt.encode(
-        payload.model_dump(mode="json"),
+        payload,
         settings.jwt_secret_key,
         algorithm=settings.jwt_algorithm,
     )

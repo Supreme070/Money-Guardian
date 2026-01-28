@@ -14,6 +14,8 @@ if TYPE_CHECKING:
     from app.models.tenant import Tenant
     from app.models.subscription import Subscription
     from app.models.alert import Alert
+    from app.models.bank_connection import BankConnection
+    from app.models.email_connection import EmailConnection
 
 
 class User(Base, TenantMixin, TimestampMixin):
@@ -57,6 +59,27 @@ class User(Base, TenantMixin, TimestampMixin):
     push_notifications_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     email_notifications_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
 
+    # Subscription tier (free, pro, premium)
+    subscription_tier: Mapped[str] = mapped_column(
+        String(20), default="free", nullable=False
+    )
+    subscription_expires_at: Mapped[datetime | None] = mapped_column(nullable=True)
+
+    # Onboarding
+    onboarding_completed: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # Email verification
+    email_verification_token: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    email_verification_token_expires_at: Mapped[datetime | None] = mapped_column(nullable=True)
+
+    # Password reset
+    password_reset_token: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    password_reset_token_expires_at: Mapped[datetime | None] = mapped_column(nullable=True)
+
+    # Push notifications (FCM)
+    fcm_token: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    fcm_device_type: Mapped[str | None] = mapped_column(String(20), nullable=True)
+
     # Relationships
     tenant: Mapped["Tenant"] = relationship("Tenant", back_populates="users")
     subscriptions: Mapped[list["Subscription"]] = relationship(
@@ -66,6 +89,16 @@ class User(Base, TenantMixin, TimestampMixin):
     )
     alerts: Mapped[list["Alert"]] = relationship(
         "Alert",
+        back_populates="user",
+        lazy="selectin",
+    )
+    bank_connections: Mapped[list["BankConnection"]] = relationship(
+        "BankConnection",
+        back_populates="user",
+        lazy="selectin",
+    )
+    email_connections: Mapped[list["EmailConnection"]] = relationship(
+        "EmailConnection",
         back_populates="user",
         lazy="selectin",
     )

@@ -1,42 +1,58 @@
 import 'package:flutter/material.dart';
 
 class LightColor {
-  // Background
-  static const Color background = Color(0XFFFFFFFF);
+  // Brand Identity: Secure Luxury
+  // ---------------------------------------------------------------------------
+  
+  // Primary Colors
+  static const Color guardianCharcoal = Color(0xFF121212); // Background
+  static const Color sovereignGold = Color(0xFFCEA734);    // Primary/Accent
+  static const Color sovereignGoldHighlight = Color(0xFFD3AC2C); // Hover/Gradient
+  
+  // Secondary & Functional
+  static const Color platinum = Color(0xFFE0E0E0);         // Primary Text
+  static const Color slate = Color(0xFF333232);            // Surface/Cards
+  static const Color signalGreen = Color(0xFF00E676);      // Success (Android Green)
+  static const Color alertRed = Color(0xFFCF6679);         // Error (Material Error)
+  static const Color warningOrange = Color(0xFFFFB74D);    // Warning
 
-  // Text Colors
-  static const Color titleTextColor = const Color(0xff1d2635);
-  static const Color subTitleTextColor = const Color(0xff797878);
+  // ---------------------------------------------------------------------------
+  // Mappings for Backward Compatibility (Refactoring Target)
+  // ---------------------------------------------------------------------------
 
-  // Primary Brand Colors
-  static const Color primary = Color(0xff15294a);        // Navy Blue - main brand
-  static const Color accent = Color(0xff375efd);         // Bright Blue - CTAs
-  static const Color lightBlue1 = Color(0xff375efd);
-  static const Color lightBlue2 = Color(0xff3554d3);
-  static const Color navyBlue1 = Color(0xff15294a);
-  static const Color lightNavyBlue = Color(0xff6d7f99);
-  static const Color navyBlue2 = Color(0xff2c405b);
+  static const Color background = guardianCharcoal;
+  static const Color titleTextColor = platinum;
+  static const Color subTitleTextColor = Color(0xFFB0B0B0); // Slightly dimmer platinum
 
-  // Highlight Colors
-  static const Color highlight = Color(0xfffbbd5c);      // Gold - warnings, premium
-  static const Color yellow = Color(0xfffbbd5c);
-  static const Color yellow2 = Color(0xffe7ad03);
+  static const Color navyBlue1 = sovereignGold; // Mapping old primary to new primary
+  static const Color navyBlue2 = slate;         // Mapping old secondary to surface
 
-  // Neutral Colors
-  static const Color lightGrey = Color(0xfff1f1f3);
-  static const Color grey = Color(0xffb9b9b9);
-  static const Color darkgrey = Color(0xff625f6a);
-  static const Color black = Color(0xff040405);
-  static const Color lightblack = Color(0xff3E404D);
+  static const Color yellow = sovereignGold;
+  static const Color orange = warningOrange;
+  static const Color grey = Color(0xFF9E9E9E);
+  static const Color lightGrey = slate;         // Surfaces are now dark slate
+  
+  static const Color black = Colors.white;      // In dark mode, "black" text is white
+  static const Color white = guardianCharcoal;  // In dark mode, "white" backgrounds are dark
 
-  // Daily Pulse Status Colors
-  static const Color safe = Color(0xff22C55E);           // Green - safe to spend
-  static const Color caution = Color(0xfffbbd5c);        // Gold - be careful
-  static const Color freeze = Color(0xffEF4444);         // Red - stop spending
+  // Semantic mappings
+  static const Color accent = sovereignGold;
+  static const Color safe = signalGreen;
+  static const Color freeze = alertRed;
 
-  // Semantic Colors
-  static const Color success = Color(0xff22C55E);
-  static const Color warning = Color(0xfffbbd5c);
-  static const Color error = Color(0xffEF4444);
-  static const Color info = Color(0xff375efd);
+  // Status colors (for Daily Pulse traffic light)
+  static const Color success = signalGreen;       // SAFE status
+  static const Color warning = warningOrange;     // CAUTION status
+  static const Color caution = warningOrange;     // Alias for warning
+  static const Color danger = alertRed;           // FREEZE/error status
+
+  // Additional greys
+  static const Color darkgrey = Color(0xFF666666);
+
+  // Gold variants for gradients
+  static const Color yellow2 = Color(0xFFB8941F);  // Darker gold for gradients
+
+  // Blue variants (for decorative elements in cards)
+  static const Color lightBlue1 = Color(0x22CEA734); // Translucent gold
+  static const Color lightBlue2 = Color(0x11CEA734); // More translucent gold
 }

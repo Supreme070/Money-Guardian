@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import auth, users, subscriptions, alerts, pulse
+from app.api.v1.endpoints import admin, auth, users, subscriptions, alerts, pulse, banking, email, webhooks, payments
 
 api_router = APIRouter()
 
@@ -35,4 +35,34 @@ api_router.include_router(
     pulse.router,
     prefix="/pulse",
     tags=["Daily Pulse"],
+)
+
+api_router.include_router(
+    banking.router,
+    prefix="/banking",
+    tags=["Banking"],
+)
+
+api_router.include_router(
+    email.router,
+    prefix="/email",
+    tags=["Email"],
+)
+
+api_router.include_router(
+    webhooks.router,
+    prefix="/webhooks",
+    tags=["Webhooks"],
+)
+
+api_router.include_router(
+    payments.router,
+    prefix="/payments",
+    tags=["Payments"],
+)
+
+api_router.include_router(
+    admin.router,
+    prefix="/admin",
+    tags=["Admin"],
 )

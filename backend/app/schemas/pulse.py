@@ -1,7 +1,6 @@
 """Daily Pulse schemas - strictly typed, no Any."""
 
 from datetime import date, datetime
-from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 
@@ -20,7 +19,7 @@ class UpcomingCharge(BaseModel):
 
     subscription_id: UUID
     name: str
-    amount: Decimal
+    amount: float
     date: date
     logo_url: str | None
     color: str | None
@@ -35,16 +34,16 @@ class PulseResponse(BaseModel):
     status_message: str
 
     # Safe to spend
-    safe_to_spend: Decimal
-    current_balance: Decimal  # From connected accounts
+    safe_to_spend: float
+    current_balance: float  # From connected accounts
 
     # Upcoming charges
     upcoming_charges: list[UpcomingCharge]
-    upcoming_total: Decimal
+    upcoming_total: float
 
     # Quick stats
     active_subscriptions_count: int
-    monthly_subscription_total: Decimal
+    monthly_subscription_total: float
     unread_alerts_count: int
 
     # Calculation metadata
@@ -55,12 +54,12 @@ class PulseResponse(BaseModel):
 class PulseBreakdown(BaseModel):
     """Detailed breakdown of pulse calculation."""
 
-    current_balance: Decimal
-    upcoming_charges_7_days: Decimal
-    upcoming_charges_30_days: Decimal
-    average_daily_spend: Decimal
-    predicted_balance_7_days: Decimal
-    predicted_balance_30_days: Decimal
+    current_balance: float
+    upcoming_charges_7_days: float
+    upcoming_charges_30_days: float
+    average_daily_spend: float
+    predicted_balance_7_days: float
+    predicted_balance_30_days: float
     overdraft_risk_date: date | None
     status: PulseStatus
     status_reason: str

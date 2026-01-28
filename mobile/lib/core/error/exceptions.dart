@@ -55,3 +55,22 @@ class PlaidException extends AppException {
     super.code,
   });
 }
+
+/// Tier limit exception (402 Payment Required)
+class TierLimitException extends AppException {
+  final int currentCount;
+  final int limit;
+  final bool upgradeRequired;
+
+  const TierLimitException({
+    required super.message,
+    required this.currentCount,
+    required this.limit,
+    required this.upgradeRequired,
+    super.code = 'TIER_LIMIT_EXCEEDED',
+  });
+
+  @override
+  String toString() =>
+      'TierLimitException: $message (current: $currentCount, limit: $limit)';
+}

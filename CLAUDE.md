@@ -97,37 +97,51 @@
 
 ```
 /money guardian/
-├── mobile/                    # Flutter mobile app
+├── mobile/                    # Money Guardian mobile app
 │   ├── lib/
 │   │   ├── main.dart
-│   │   ├── core/             # Infrastructure (DI, network, storage, utils)
+│   │   ├── core/             # Infrastructure
+│   │   │   ├── config/       # API config (api_config.dart)
 │   │   │   ├── di/           # Dependency injection (GetIt + Injectable)
 │   │   │   ├── error/        # Exceptions & Failures
 │   │   │   ├── network/      # API client, interceptors
 │   │   │   ├── storage/      # Secure storage, preferences
-│   │   │   └── utils/        # Formatters, validators
-│   │   ├── data/             # Data layer (to be built)
-│   │   │   ├── datasources/  # Remote & local data sources
-│   │   │   ├── models/       # JSON serializable models
-│   │   │   └── repositories/ # Repository implementations
-│   │   ├── domain/           # Business layer (to be built)
+│   │   │   └── utils/        # Formatters, validators, model_mappers
+│   │   ├── data/             # Data layer ✅ COMPLETE
+│   │   │   ├── models/       # auth_models, user_model, subscription_model,
+│   │   │   │                 # alert_model, pulse_model (strict typing)
+│   │   │   └── repositories/ # auth, subscription, alert, pulse repositories
+│   │   ├── domain/           # Business layer (optional - repos handle logic)
 │   │   │   ├── entities/     # Business entities
 │   │   │   ├── repositories/ # Repository interfaces
 │   │   │   └── usecases/     # Business logic
-│   │   ├── presentation/     # UI layer (to be built)
-│   │   │   ├── blocs/        # BLoC state management
-│   │   │   ├── pages/        # Screens
-│   │   │   └── widgets/      # Reusable components
-│   │   ├── services/         # Firebase, notifications, Plaid
-│   │   └── src/              # LEGACY template widgets
+│   │   ├── presentation/     # UI layer ✅ BLoCs COMPLETE
+│   │   │   └── blocs/        # auth/, subscriptions/, alerts/, pulse/
+│   │   │       ├── auth/     # auth_bloc, auth_event, auth_state
+│   │   │       ├── subscriptions/
+│   │   │       ├── alerts/
+│   │   │       └── pulse/
+│   │   └── src/              # Current UI (uses mock data)
 │   │       ├── theme/        # Brand colors & typography
-│   │       ├── pages/        # Original template pages
-│   │       └── widgets/      # Original template widgets
+│   │       ├── pages/        # homePage, subscriptions_page, alerts_page, calendar_page
+│   │       └── widgets/      # pulse_status_card, subscription_card, etc.
 │   ├── android/
 │   ├── ios/
 │   └── pubspec.yaml
 │
-├── backend/                   # FastAPI backend (to be created)
+├── backend/                   # FastAPI backend ✅ COMPLETE
+│   ├── app/
+│   │   ├── main.py
+│   │   ├── core/             # config, security (JWT with tenant_id)
+│   │   ├── db/               # base (TenantMixin, TimestampMixin)
+│   │   ├── models/           # tenant, user, subscription, alert
+│   │   ├── schemas/          # Pydantic schemas (strict Literal types)
+│   │   ├── api/v1/endpoints/ # auth, subscriptions, alerts, pulse
+│   │   └── services/         # auth_service, subscription_service
+│   ├── alembic/              # Database migrations
+│   ├── docker-compose.yml    # API + PostgreSQL + Redis
+│   ├── Dockerfile
+│   └── requirements.txt
 │
 ├── CLAUDE.md                  # This file
 └── MONEY_GUARDIAN_IMPLEMENTATION_PLAN.md
@@ -138,8 +152,8 @@
 ## Tech Stack
 
 ### Mobile
-- **Framework:** Flutter (Dart)
-- **State Management:** TBD (BLoC recommended)
+- **Language:** Dart
+- **State Management:** BLoC
 - **Font:** Mulish (Google Fonts)
 - **Package ID:** `com.moneyguardian.app`
 
@@ -174,11 +188,11 @@
 **Pattern:** Monolith-first, clean architecture, multi-tenant, API-first
 
 ```
-Mobile (Flutter) → Backend (FastAPI) → PostgreSQL + Redis
-       ↑                  ↓
-       │       External APIs (Plaid, Gmail, Stripe)
-       │
-       └── NEVER accesses DB directly. Always through Backend API.
+Money Guardian Mobile → Backend (FastAPI) → PostgreSQL + Redis
+           ↑                    ↓
+           │         External APIs (Plaid, Gmail, Stripe)
+           │
+           └── NEVER accesses DB directly. Always through Backend API.
 ```
 
 See `MONEY_GUARDIAN_IMPLEMENTATION_PLAN.md` for full architecture details.
@@ -205,7 +219,7 @@ Mobile App → Database (Firebase Firestore, direct SQL, etc.)
 
 ### 2. Strict Typing: NO `any`, `unknown`, or `dynamic`
 
-**Dart (Flutter):**
+**Dart:**
 ```dart
 // ❌ NEVER
 dynamic data = response.data;
@@ -354,21 +368,17 @@ async def create_subscription(
 
 ### Mobile
 
-```bash
-cd mobile
-flutter pub get      # Install dependencies
-flutter run          # Run app
-flutter build apk    # Build Android
-flutter build ios    # Build iOS
-```
+From the `mobile/` directory:
+- Install dependencies
+- Run build_runner to generate DI config
+- Run on device/simulator
 
-### Backend (when created)
+### Backend
 
-```bash
-cd backend
-pip install -r requirements.txt
-uvicorn app.main:app --reload
-```
+From the `backend/` directory:
+- `docker-compose up -d` - Start all services (API, PostgreSQL, Redis)
+- `docker-compose logs -f api` - View API logs
+- `docker-compose down` - Stop all services
 
 ---
 
@@ -448,7 +458,7 @@ UI Widget → BLoC → UseCase → Repository → DataSource
 - Register dependencies in `core/di/injection.dart`
 
 ### 6. State Management Rules
-- Use flutter_bloc for all new features
+- Use BLoC pattern for all new features
 - One BLoC per feature/domain
 - Events are past-tense (UserLoggedIn, PulseLoaded)
 - States are nouns (PulseInitial, PulseLoading, PulseLoaded, PulseError)
@@ -489,8 +499,8 @@ import 'package:money_guardian/domain/entities/pulse.dart';
 ## Current Status
 
 **Approach:** Option A - Building on existing template
-**Template:** flutter_wallet_app (BSD-2-Clause)
-**Status:** UI complete with mock data, needs backend + real data integration
+**Template:** wallet_app (BSD-2-Clause)
+**Status:** Backend complete, mobile data layer complete, all UI pages wired to BLoCs, Pro features UI complete
 **Repo:** https://github.com/Supreme070/Money-Guardian
 
 ### What's Done
@@ -504,11 +514,44 @@ import 'package:money_guardian/domain/entities/pulse.dart';
 - [x] Clean Architecture folder structure
 - [x] Core layer (DI, network, storage, utils)
 
-**UI Pages (all 4 main screens):**
-- [x] Daily Pulse (Home) - PulseStatusCard, quick stats, next 7 days
-- [x] Subscriptions Hub - list with AI flags, filter/sort, monthly total
-- [x] Calendar - month view with charge markers, day detail
-- [x] Alerts Center - severity levels, unread badges, alert cards
+**Backend (FastAPI - `/backend/`):**
+- [x] FastAPI project setup with Pydantic models (strict typing, no `Any`)
+- [x] PostgreSQL + multi-tenant schema (tenant_id on all tables)
+- [x] Auth endpoints (JWT with tenant_id in payload)
+- [x] Core API endpoints (subscriptions, alerts, pulse)
+- [x] Docker Compose setup (API + PostgreSQL + Redis)
+- [x] All schemas with Literal types (like Zod pattern)
+- [x] TenantMixin and TimestampMixin for database models
+
+**Mobile Data Layer (`/mobile/lib/data/`):**
+- [x] API configuration (`core/config/api_config.dart`)
+- [x] Auth models (`data/models/auth_models.dart`)
+- [x] User model (`data/models/user_model.dart`)
+- [x] Subscription model with enums (`data/models/subscription_model.dart`)
+- [x] Alert model with enums (`data/models/alert_model.dart`)
+- [x] Pulse model with enums (`data/models/pulse_model.dart`)
+- [x] Auth repository (`data/repositories/auth_repository.dart`)
+- [x] Subscription repository (`data/repositories/subscription_repository.dart`)
+- [x] Alert repository (`data/repositories/alert_repository.dart`)
+- [x] Pulse repository (`data/repositories/pulse_repository.dart`)
+
+**Mobile BLoCs (`/mobile/lib/presentation/blocs/`):**
+- [x] AuthBloc - login, register, logout, profile update
+- [x] SubscriptionBloc - CRUD, pause, resume, cancel
+- [x] AlertBloc - list, mark read, dismiss
+- [x] PulseBloc - load, refresh
+- [x] BankingBloc - connect bank, sync transactions, disconnect
+- [x] EmailScanningBloc - connect email, scan emails, disconnect
+
+**UI Pages (all screens wired to BLoCs):**
+- [x] Daily Pulse (Home) - PulseBloc, PulseStatusCard, quick stats, next 7 days
+- [x] Subscriptions Hub - SubscriptionBloc, list with AI flags, filter/sort, monthly total
+- [x] Calendar - SubscriptionBloc, month view with charge markers, day detail (typed SubscriptionModel)
+- [x] Alerts Center - AlertBloc, severity levels, unread badges, alert cards
+- [x] Settings - BankingBloc, EmailScanningBloc, connections overview, preferences
+- [x] Connect Bank - Multi-region (Plaid/Mono/Stitch), account listing, sync status
+- [x] Connect Email - Gmail/Outlook OAuth, scanned emails, confidence badges
+- [x] Pro Upgrade - Pricing tiers, feature comparison, subscription flow
 
 **Widgets:**
 - [x] `PulseStatusCard` - SAFE/CAUTION/FREEZE with safe-to-spend
@@ -516,16 +559,27 @@ import 'package:money_guardian/domain/entities/pulse.dart';
 - [x] `UpcomingSubscriptionItem` - compact list item
 - [x] `BottomNavigation` - 4 tabs (Home, Subs, Calendar, Alerts)
 
+**Backend Pro Features (Celery + Background Tasks):**
+- [x] Banking providers (Plaid, Mono, Stitch) with abstract factory
+- [x] Email providers (Gmail, Outlook) with OAuth 2.0
+- [x] Celery task queue for background sync
+- [x] Scheduled tasks for transaction/balance sync
+
+**Mobile Pro Features:**
+- [x] Bank connection models (`data/models/bank_connection_model.dart`)
+- [x] Email connection models (`data/models/email_connection_model.dart`)
+- [x] Banking repository (`data/repositories/banking_repository.dart`)
+- [x] Email repository (`data/repositories/email_repository.dart`)
+
 ### What's Next (Priority Order)
 
-**Backend (must come first - mobile calls API, not DB):**
-- [ ] FastAPI project setup with Pydantic models
-- [ ] PostgreSQL + multi-tenant schema (tenant_id on all tables)
-- [ ] Auth endpoints (Firebase Auth + JWT with tenant_id)
-- [ ] Core API endpoints (subscriptions, alerts, pulse)
+**Before Running:**
+1. Start backend (docker-compose up in backend directory)
+2. Configure environment variables (Plaid, Google, Microsoft API keys)
 
-**Mobile Integration:**
-- [ ] Domain layer (entities, repository interfaces)
-- [ ] Data layer (API models, remote data sources)
-- [ ] BLoCs for each feature
-- [ ] Connect UI to real API endpoints
+**Remaining Work:**
+- [ ] Integrate Plaid Flutter SDK for bank connection flow
+- [ ] Implement OAuth WebView for email connection
+- [ ] Integrate RevenueCat/Stripe for Pro subscriptions
+- [ ] Add onboarding flow for new users
+- [ ] Add push notifications (Firebase Cloud Messaging)

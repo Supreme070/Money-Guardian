@@ -126,6 +126,10 @@ class ApiClient {
           return AuthException(message: message, code: 'UNAUTHORIZED');
         }
 
+        if (statusCode == 402) {
+          return _handleTierLimitError(error.response);
+        }
+
         return ServerException(
           message: message,
           statusCode: statusCode,
@@ -145,10 +149,41 @@ class ApiClient {
   String _extractErrorMessage(Response? response) {
     if (response?.data is Map) {
       final data = response!.data as Map;
+      // Handle FastAPI detail structure
+      final detail = data['detail'];
+      if (detail is Map) {
+        return detail['message'] as String? ?? 'Server error occurred';
+      }
+      if (detail is String) {
+        return detail;
+      }
       return data['message'] as String? ??
           data['error'] as String? ??
           'Server error occurred';
     }
     return 'Server error occurred';
+  }
+
+  /// Handle 402 Payment Required (tier limit exceeded)
+  TierLimitException _handleTierLimitError(Response? response) {
+    if (response?.data is Map) {
+      final data = response!.data as Map;
+      final detail = data['detail'];
+      if (detail is Map) {
+        return TierLimitException(
+          message: detail['message'] as String? ??
+              'Subscription limit reached. Upgrade to Pro.',
+          currentCount: detail['current_count'] as int? ?? 5,
+          limit: detail['limit'] as int? ?? 5,
+          upgradeRequired: detail['upgrade_required'] as bool? ?? true,
+        );
+      }
+    }
+    return const TierLimitException(
+      message: 'Subscription limit reached. Upgrade to Pro.',
+      currentCount: 5,
+      limit: 5,
+      upgradeRequired: true,
+    );
   }
 }

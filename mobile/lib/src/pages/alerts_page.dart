@@ -1,48 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:money_guardian/src/theme/light_color.dart';
-import 'package:money_guardian/src/widgets/bottom_navigation_bar.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:money_guardian/core/utils/currency_formatter.dart';
-import 'package:money_guardian/core/utils/date_formatter.dart';
 
-enum AlertType {
-  upcomingCharge,
-  overdraftWarning,
-  priceIncrease,
-  trialEnding,
-  unusedSubscription,
-  paymentFailed,
-}
-
-enum AlertSeverity {
-  info,
-  warning,
-  critical,
-}
-
-class AlertItem {
-  final String id;
-  final AlertType type;
-  final AlertSeverity severity;
-  final String title;
-  final String message;
-  final DateTime date;
-  final double? amount;
-  final String? subscriptionName;
-  final bool isRead;
-
-  AlertItem({
-    required this.id,
-    required this.type,
-    required this.severity,
-    required this.title,
-    required this.message,
-    required this.date,
-    this.amount,
-    this.subscriptionName,
-    this.isRead = false,
-  });
-}
+import '../../core/utils/currency_formatter.dart';
+import '../../core/utils/date_formatter.dart';
+import '../../data/models/alert_model.dart';
+import '../../presentation/blocs/alerts/alert_bloc.dart';
+import '../../presentation/blocs/alerts/alert_event.dart';
+import '../../presentation/blocs/alerts/alert_state.dart';
+import '../theme/light_color.dart';
+import '../widgets/bottom_navigation_bar.dart';
 
 class AlertsPage extends StatefulWidget {
   const AlertsPage({Key? key}) : super(key: key);
@@ -55,61 +22,11 @@ class _AlertsPageState extends State<AlertsPage> {
   int _currentNavIndex = 3;
   String _selectedFilter = 'all';
 
-  // Mock alerts data
-  final List<AlertItem> _alerts = [
-    AlertItem(
-      id: '1',
-      type: AlertType.overdraftWarning,
-      severity: AlertSeverity.critical,
-      title: 'Overdraft Risk',
-      message: 'Adobe CC charge of \$54.99 on Jan 22 may overdraft your account',
-      date: DateTime.now(),
-      amount: 54.99,
-      subscriptionName: 'Adobe Creative Cloud',
-    ),
-    AlertItem(
-      id: '2',
-      type: AlertType.trialEnding,
-      severity: AlertSeverity.warning,
-      title: 'Trial Ending Soon',
-      message: 'Your Disney+ trial ends in 3 days. You will be charged \$7.99',
-      date: DateTime.now().add(const Duration(days: 3)),
-      amount: 7.99,
-      subscriptionName: 'Disney+',
-    ),
-    AlertItem(
-      id: '3',
-      type: AlertType.upcomingCharge,
-      severity: AlertSeverity.info,
-      title: 'Upcoming Charge',
-      message: 'Netflix subscription renews tomorrow',
-      date: DateTime.now().add(const Duration(days: 1)),
-      amount: 15.99,
-      subscriptionName: 'Netflix',
-    ),
-    AlertItem(
-      id: '4',
-      type: AlertType.priceIncrease,
-      severity: AlertSeverity.warning,
-      title: 'Price Increase',
-      message: 'Spotify increased from \$9.99 to \$10.99 starting next month',
-      date: DateTime.now().add(const Duration(days: 30)),
-      amount: 10.99,
-      subscriptionName: 'Spotify',
-      isRead: true,
-    ),
-    AlertItem(
-      id: '5',
-      type: AlertType.unusedSubscription,
-      severity: AlertSeverity.info,
-      title: 'Unused Subscription',
-      message: "You haven't used Gym Membership in 45 days. Consider canceling?",
-      date: DateTime.now().subtract(const Duration(days: 45)),
-      amount: 29.99,
-      subscriptionName: 'Gym Membership',
-      isRead: true,
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    context.read<AlertBloc>().add(const AlertLoadRequested());
+  }
 
   void _onNavTap(int index) {
     if (index == _currentNavIndex) return;
@@ -118,7 +35,7 @@ class _AlertsPageState extends State<AlertsPage> {
     });
     switch (index) {
       case 0:
-        Navigator.pushReplacementNamed(context, '/');
+        Navigator.pushReplacementNamed(context, '/home');
         break;
       case 1:
         Navigator.pushReplacementNamed(context, '/subscriptions');
@@ -127,21 +44,18 @@ class _AlertsPageState extends State<AlertsPage> {
         Navigator.pushReplacementNamed(context, '/calendar');
         break;
       case 3:
-        // Already on alerts
         break;
     }
   }
 
-  List<AlertItem> get _filteredAlerts {
-    if (_selectedFilter == 'all') return _alerts;
-    if (_selectedFilter == 'unread') return _alerts.where((a) => !a.isRead).toList();
+  List<AlertModel> _filterAlerts(List<AlertModel> alerts) {
+    if (_selectedFilter == 'all') return alerts;
+    if (_selectedFilter == 'unread') return alerts.where((a) => !a.isRead).toList();
     if (_selectedFilter == 'critical') {
-      return _alerts.where((a) => a.severity == AlertSeverity.critical).toList();
+      return alerts.where((a) => a.severity == AlertSeverity.critical).toList();
     }
-    return _alerts;
+    return alerts;
   }
-
-  int get _unreadCount => _alerts.where((a) => !a.isRead).length;
 
   Color _getSeverityColor(AlertSeverity severity) {
     switch (severity) {
@@ -168,10 +82,14 @@ class _AlertsPageState extends State<AlertsPage> {
         return Icons.visibility_off_rounded;
       case AlertType.paymentFailed:
         return Icons.error_outline_rounded;
+      case AlertType.largeCharge:
+        return Icons.attach_money_rounded;
     }
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(AlertLoaded state) {
+    final unreadCount = state.unreadCount;
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -201,7 +119,7 @@ class _AlertsPageState extends State<AlertsPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _unreadCount > 0 ? '$_unreadCount New Alerts' : 'All Caught Up',
+                  unreadCount > 0 ? '$unreadCount New Alerts' : 'All Caught Up',
                   style: GoogleFonts.mulish(
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
@@ -210,7 +128,7 @@ class _AlertsPageState extends State<AlertsPage> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  _unreadCount > 0
+                  unreadCount > 0
                       ? 'Tap to review and take action'
                       : 'No new notifications',
                   style: GoogleFonts.mulish(
@@ -222,7 +140,7 @@ class _AlertsPageState extends State<AlertsPage> {
               ],
             ),
           ),
-          if (_unreadCount > 0)
+          if (unreadCount > 0)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
@@ -230,7 +148,7 @@ class _AlertsPageState extends State<AlertsPage> {
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
-                '$_unreadCount',
+                '$unreadCount',
                 style: GoogleFonts.mulish(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
@@ -285,142 +203,147 @@ class _AlertsPageState extends State<AlertsPage> {
     );
   }
 
-  Widget _buildAlertCard(AlertItem alert) {
+  Widget _buildAlertCard(AlertModel alert) {
     final color = _getSeverityColor(alert.severity);
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: !alert.isRead
-            ? Border.all(color: color.withOpacity(0.3), width: 1.5)
-            : null,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () {
-            // Handle alert tap
-          },
+    return Dismissible(
+      key: Key(alert.id),
+      direction: DismissDirection.endToStart,
+      onDismissed: (_) {
+        context.read<AlertBloc>().add(AlertDismissRequested(alertId: alert.id));
+      },
+      background: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: LightColor.freeze,
           borderRadius: BorderRadius.circular(16),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: color.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Center(
-                        child: Icon(
-                          _getAlertIcon(alert.type),
-                          color: color,
-                          size: 22,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  alert.title,
-                                  style: GoogleFonts.mulish(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w700,
-                                    color: LightColor.titleTextColor,
-                                  ),
-                                ),
-                              ),
-                              if (!alert.isRead)
-                                Container(
-                                  width: 8,
-                                  height: 8,
-                                  decoration: BoxDecoration(
-                                    color: color,
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            DateFormatter.formatRelative(alert.date),
-                            style: GoogleFonts.mulish(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              color: LightColor.subTitleTextColor,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  alert.message,
-                  style: GoogleFonts.mulish(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: LightColor.darkgrey,
-                    height: 1.4,
-                  ),
-                ),
-                if (alert.amount != null) ...[
-                  const SizedBox(height: 12),
+        ),
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        child: const Icon(
+          Icons.delete_rounded,
+          color: Colors.white,
+        ),
+      ),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: !alert.isRead
+              ? Border.all(color: color.withOpacity(0.3), width: 1.5)
+              : null,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () {
+              if (!alert.isRead) {
+                context.read<AlertBloc>().add(
+                      AlertMarkReadRequested(alertIds: [alert.id]),
+                    );
+              }
+            },
+            borderRadius: BorderRadius.circular(16),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      if (alert.subscriptionName != null)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: LightColor.lightGrey,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            alert.subscriptionName!,
-                            style: GoogleFonts.mulish(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: LightColor.darkgrey,
-                            ),
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: color.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Center(
+                          child: Icon(
+                            _getAlertIcon(alert.alertType),
+                            color: color,
+                            size: 22,
                           ),
                         ),
-                      Text(
-                        CurrencyFormatter.format(alert.amount!),
-                        style: GoogleFonts.mulish(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          color: color,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    alert.title,
+                                    style: GoogleFonts.mulish(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w700,
+                                      color: LightColor.titleTextColor,
+                                    ),
+                                  ),
+                                ),
+                                if (!alert.isRead)
+                                  Container(
+                                    width: 8,
+                                    height: 8,
+                                    decoration: BoxDecoration(
+                                      color: color,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              DateFormatter.formatRelative(alert.createdAt),
+                              style: GoogleFonts.mulish(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: LightColor.subTitleTextColor,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
+                  const SizedBox(height: 12),
+                  Text(
+                    alert.message,
+                    style: GoogleFonts.mulish(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: LightColor.darkgrey,
+                      height: 1.4,
+                    ),
+                  ),
+                  if (alert.amount != null) ...[
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        Text(
+                          CurrencyFormatter.format(alert.amount!),
+                          style: GoogleFonts.mulish(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            color: color,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),
@@ -428,8 +351,8 @@ class _AlertsPageState extends State<AlertsPage> {
     );
   }
 
-  Widget _buildAlertsList() {
-    final filtered = _filteredAlerts;
+  Widget _buildAlertsList(List<AlertModel> alerts) {
+    final filtered = _filterAlerts(alerts);
 
     if (filtered.isEmpty) {
       return Center(
@@ -471,6 +394,52 @@ class _AlertsPageState extends State<AlertsPage> {
     );
   }
 
+  Widget _buildLoadingState() {
+    return const Center(
+      child: CircularProgressIndicator(
+        color: LightColor.accent,
+      ),
+    );
+  }
+
+  Widget _buildErrorState(String message) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(
+            Icons.error_outline_rounded,
+            color: LightColor.freeze,
+            size: 48,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Something went wrong',
+            style: GoogleFonts.mulish(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: LightColor.titleTextColor,
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextButton(
+            onPressed: () {
+              context.read<AlertBloc>().add(const AlertLoadRequested());
+            },
+            child: Text(
+              'Try again',
+              style: GoogleFonts.mulish(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: LightColor.accent,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -480,57 +449,85 @@ class _AlertsPageState extends State<AlertsPage> {
         onTap: _onNavTap,
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 20),
-                // Page title with mark all read
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Alerts',
-                      style: GoogleFonts.mulish(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w800,
-                        color: LightColor.titleTextColor,
-                      ),
-                    ),
-                    if (_unreadCount > 0)
-                      GestureDetector(
-                        onTap: () {
-                          // Mark all as read
-                        },
-                        child: Text(
-                          'Mark all read',
-                          style: GoogleFonts.mulish(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: LightColor.accent,
-                          ),
+        child: BlocBuilder<AlertBloc, AlertState>(
+          builder: (context, state) {
+            if (state is AlertLoading) {
+              return _buildLoadingState();
+            }
+
+            if (state is AlertError) {
+              return _buildErrorState(state.message);
+            }
+
+            if (state is AlertLoaded) {
+              return RefreshIndicator(
+                onRefresh: () async {
+                  context.read<AlertBloc>().add(const AlertLoadRequested());
+                },
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 20),
+                        // Page title with mark all read
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Alerts',
+                              style: GoogleFonts.mulish(
+                                fontSize: 24,
+                                fontWeight: FontWeight.w800,
+                                color: LightColor.titleTextColor,
+                              ),
+                            ),
+                            if (state.unreadCount > 0)
+                              GestureDetector(
+                                onTap: () {
+                                  final unreadIds = state.alerts
+                                      .where((a) => !a.isRead)
+                                      .map((a) => a.id)
+                                      .toList();
+                                  context.read<AlertBloc>().add(
+                                        AlertMarkReadRequested(alertIds: unreadIds),
+                                      );
+                                },
+                                child: Text(
+                                  'Mark all read',
+                                  style: GoogleFonts.mulish(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: LightColor.accent,
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
-                      ),
-                  ],
+                        const SizedBox(height: 20),
+
+                        // Header
+                        _buildHeader(state),
+                        const SizedBox(height: 24),
+
+                        // Filter tabs
+                        _buildFilterTabs(),
+                        const SizedBox(height: 20),
+
+                        // Alerts list
+                        _buildAlertsList(state.alerts),
+                        const SizedBox(height: 24),
+                      ],
+                    ),
+                  ),
                 ),
-                const SizedBox(height: 20),
+              );
+            }
 
-                // Header
-                _buildHeader(),
-                const SizedBox(height: 24),
-
-                // Filter tabs
-                _buildFilterTabs(),
-                const SizedBox(height: 20),
-
-                // Alerts list
-                _buildAlertsList(),
-                const SizedBox(height: 24),
-              ],
-            ),
-          ),
+            return _buildLoadingState();
+          },
         ),
       ),
     );

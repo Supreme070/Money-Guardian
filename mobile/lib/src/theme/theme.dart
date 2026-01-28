@@ -7,15 +7,15 @@ class AppTheme {
   const AppTheme();
   static ThemeData lightTheme = ThemeData(
     primarySwatch: Colors.blue,
-    backgroundColor: LightColor.background,
+    scaffoldBackgroundColor: LightColor.background,
     primaryColor: LightColor.navyBlue1,
-    cardTheme: CardTheme(color: LightColor.navyBlue2),
-    textTheme: TextTheme(headline4: TextStyle(color: LightColor.black)),
+    cardTheme: CardThemeData(color: LightColor.navyBlue2),
+    textTheme: TextTheme(headlineMedium: TextStyle(color: LightColor.black)),
     iconTheme: IconThemeData(color: LightColor.navyBlue2),
-    bottomAppBarColor: LightColor.background,
+    bottomAppBarTheme: BottomAppBarThemeData(color: LightColor.background),
     dividerColor: LightColor.lightGrey,
     primaryTextTheme: TextTheme(
-      bodyText2: TextStyle(color:LightColor.titleTextColor)
+      bodyMedium: TextStyle(color:LightColor.titleTextColor)
     )
   );
 

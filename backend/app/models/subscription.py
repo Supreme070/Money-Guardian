@@ -104,6 +104,10 @@ class Subscription(Base, TenantMixin, TimestampMixin, SoftDeleteMixin):
 
     # External IDs
     plaid_transaction_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    email_message_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    bank_transaction_pattern: Mapped[str | None] = mapped_column(
+        String(255), nullable=True
+    )  # Pattern for matching recurring bank transactions
 
     # Display customization
     color: Mapped[str | None] = mapped_column(String(7), nullable=True)  # Hex color

@@ -41,5 +41,28 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
+	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
+	<!-- Plaid Link Configuration -->
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>plaidlink</string>
+	</array>
+	<!-- URL Scheme for OAuth callbacks -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.moneyguardian.app</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.moneyguardian.app</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

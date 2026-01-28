@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:money_guardian/src/theme/light_color.dart';
 import 'package:money_guardian/src/widgets/bottom_navigation_bar.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:money_guardian/core/utils/currency_formatter.dart';
+import 'package:money_guardian/data/models/subscription_model.dart';
+import 'package:money_guardian/presentation/blocs/subscriptions/subscription_bloc.dart';
+import 'package:money_guardian/presentation/blocs/subscriptions/subscription_event.dart';
+import 'package:money_guardian/presentation/blocs/subscriptions/subscription_state.dart';
 import 'package:intl/intl.dart';
+import 'subscription_detail_page.dart';
 
 class CalendarPage extends StatefulWidget {
   const CalendarPage({Key? key}) : super(key: key);
@@ -17,36 +23,37 @@ class _CalendarPageState extends State<CalendarPage> {
   late DateTime _currentMonth;
   DateTime? _selectedDate;
 
-  // Mock subscription data by date
-  final Map<String, List<Map<String, dynamic>>> _subscriptionsByDate = {};
-
   @override
   void initState() {
     super.initState();
     _currentMonth = DateTime(DateTime.now().year, DateTime.now().month);
     _selectedDate = DateTime.now();
-    _generateMockData();
+    context.read<SubscriptionBloc>().add(const SubscriptionLoadRequested());
   }
 
-  void _generateMockData() {
-    // Generate mock subscriptions for the current month
-    final mockSubs = [
-      {'name': 'Netflix', 'amount': 15.99, 'day': 5, 'color': const Color(0xffE50914)},
-      {'name': 'Spotify', 'amount': 9.99, 'day': 8, 'color': const Color(0xff1DB954)},
-      {'name': 'iCloud', 'amount': 2.99, 'day': 15, 'color': const Color(0xff007AFF)},
-      {'name': 'Amazon Prime', 'amount': 14.99, 'day': 18, 'color': const Color(0xffFF9900)},
-      {'name': 'Adobe CC', 'amount': 54.99, 'day': 22, 'color': const Color(0xffFF0000)},
-      {'name': 'Gym', 'amount': 29.99, 'day': 28, 'color': const Color(0xff6366F1)},
-    ];
-
-    for (var sub in mockSubs) {
-      final date = DateTime(_currentMonth.year, _currentMonth.month, sub['day'] as int);
-      final key = _dateKey(date);
-      _subscriptionsByDate[key] = [
-        ..._subscriptionsByDate[key] ?? [],
-        sub,
-      ];
+  /// Get color for subscription based on its color field or fallback
+  Color _getSubscriptionColor(SubscriptionModel sub) {
+    if (sub.color != null && sub.color!.isNotEmpty) {
+      try {
+        final hex = sub.color!.replaceFirst('#', '');
+        return Color(int.parse('FF$hex', radix: 16));
+      } catch (_) {
+        return LightColor.accent;
+      }
     }
+    return LightColor.accent;
+  }
+
+  /// Group subscriptions by their billing date
+  Map<String, List<SubscriptionModel>> _groupSubscriptionsByDate(List<SubscriptionModel> subscriptions) {
+    final Map<String, List<SubscriptionModel>> grouped = {};
+    for (final sub in subscriptions) {
+      if (sub.nextBillingDate != null) {
+        final key = _dateKey(sub.nextBillingDate!);
+        grouped[key] = [...(grouped[key] ?? []), sub];
+      }
+    }
+    return grouped;
   }
 
   String _dateKey(DateTime date) {
@@ -60,7 +67,7 @@ class _CalendarPageState extends State<CalendarPage> {
     });
     switch (index) {
       case 0:
-        Navigator.pushReplacementNamed(context, '/');
+        Navigator.pushReplacementNamed(context, '/home');
         break;
       case 1:
         Navigator.pushReplacementNamed(context, '/subscriptions');
@@ -88,21 +95,23 @@ class _CalendarPageState extends State<CalendarPage> {
     });
   }
 
-  List<Map<String, dynamic>> _getSubscriptionsForDate(DateTime date) {
-    return _subscriptionsByDate[_dateKey(date)] ?? [];
+  List<SubscriptionModel> _getSubscriptionsForDate(DateTime date, Map<String, List<SubscriptionModel>> grouped) {
+    return grouped[_dateKey(date)] ?? [];
   }
 
-  double _getTotalForMonth() {
+  double _getTotalForMonth(List<SubscriptionModel> subscriptions) {
     double total = 0;
-    _subscriptionsByDate.forEach((key, subs) {
-      for (var sub in subs) {
-        total += sub['amount'] as double;
+    for (final sub in subscriptions) {
+      if (sub.nextBillingDate != null &&
+          sub.nextBillingDate!.year == _currentMonth.year &&
+          sub.nextBillingDate!.month == _currentMonth.month) {
+        total += sub.amount;
       }
-    });
+    }
     return total;
   }
 
-  Widget _buildMonthHeader() {
+  Widget _buildMonthHeader(List<SubscriptionModel> subscriptions) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -132,7 +141,7 @@ class _CalendarPageState extends State<CalendarPage> {
             ),
             const SizedBox(height: 4),
             Text(
-              'Total: ${CurrencyFormatter.format(_getTotalForMonth())}',
+              'Total: ${CurrencyFormatter.format(_getTotalForMonth(subscriptions))}',
               style: GoogleFonts.mulish(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
@@ -183,7 +192,7 @@ class _CalendarPageState extends State<CalendarPage> {
     );
   }
 
-  Widget _buildCalendarGrid() {
+  Widget _buildCalendarGrid(Map<String, List<SubscriptionModel>> groupedSubs) {
     final firstDayOfMonth = DateTime(_currentMonth.year, _currentMonth.month, 1);
     final lastDayOfMonth = DateTime(_currentMonth.year, _currentMonth.month + 1, 0);
     final firstWeekday = firstDayOfMonth.weekday % 7;
@@ -202,7 +211,7 @@ class _CalendarPageState extends State<CalendarPage> {
     // Day cells
     for (int day = 1; day <= daysInMonth; day++) {
       final date = DateTime(_currentMonth.year, _currentMonth.month, day);
-      final subscriptions = _getSubscriptionsForDate(date);
+      final subscriptions = _getSubscriptionsForDate(date, groupedSubs);
       final hasSubscriptions = subscriptions.isNotEmpty;
       final isToday = isCurrentMonth && day == today.day;
       final isSelected = _selectedDate != null &&
@@ -255,7 +264,7 @@ class _CalendarPageState extends State<CalendarPage> {
                         decoration: BoxDecoration(
                           color: isSelected
                               ? Colors.white
-                              : sub['color'] as Color,
+                              : _getSubscriptionColor(sub),
                           shape: BoxShape.circle,
                         ),
                       );
@@ -277,7 +286,7 @@ class _CalendarPageState extends State<CalendarPage> {
     );
   }
 
-  Widget _buildSelectedDateDetails() {
+  Widget _buildSelectedDateDetails(Map<String, List<SubscriptionModel>> groupedSubs) {
     if (_selectedDate == null) {
       return Container(
         padding: const EdgeInsets.all(24),
@@ -298,7 +307,7 @@ class _CalendarPageState extends State<CalendarPage> {
       );
     }
 
-    final subscriptions = _getSubscriptionsForDate(_selectedDate!);
+    final subscriptions = _getSubscriptionsForDate(_selectedDate!, groupedSubs);
     final dateLabel = DateFormat('EEEE, MMMM d').format(_selectedDate!);
 
     if (subscriptions.isEmpty) {
@@ -339,8 +348,8 @@ class _CalendarPageState extends State<CalendarPage> {
     }
 
     double dayTotal = 0;
-    for (var sub in subscriptions) {
-      dayTotal += sub['amount'] as double;
+    for (final sub in subscriptions) {
+      dayTotal += sub.amount;
     }
 
     return Container(
@@ -387,43 +396,106 @@ class _CalendarPageState extends State<CalendarPage> {
     );
   }
 
-  Widget _buildSubscriptionItem(Map<String, dynamic> sub) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: (sub['color'] as Color).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Center(
-              child: Icon(
-                Icons.subscriptions_rounded,
-                color: sub['color'] as Color,
-                size: 20,
+  Widget _buildSubscriptionItem(SubscriptionModel sub) {
+    final color = _getSubscriptionColor(sub);
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute<void>(
+            builder: (context) => SubscriptionDetailPage(subscription: sub),
+          ),
+        );
+      },
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Center(
+                child: Icon(
+                  Icons.subscriptions_rounded,
+                  color: color,
+                  size: 20,
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              sub['name'] as String,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                sub.name,
+                style: GoogleFonts.mulish(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: LightColor.titleTextColor,
+                ),
+              ),
+            ),
+            Text(
+              CurrencyFormatter.format(sub.amount),
               style: GoogleFonts.mulish(
                 fontSize: 14,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w700,
                 color: LightColor.titleTextColor,
               ),
             ),
+            const SizedBox(width: 8),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: LightColor.grey,
+              size: 20,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoadingState() {
+    return const Center(
+      child: CircularProgressIndicator(
+        color: LightColor.accent,
+      ),
+    );
+  }
+
+  Widget _buildErrorState(String message) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(
+            Icons.error_outline_rounded,
+            color: LightColor.freeze,
+            size: 48,
           ),
+          const SizedBox(height: 16),
           Text(
-            CurrencyFormatter.format(sub['amount'] as double),
+            'Something went wrong',
             style: GoogleFonts.mulish(
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
               color: LightColor.titleTextColor,
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextButton(
+            onPressed: () {
+              context.read<SubscriptionBloc>().add(const SubscriptionLoadRequested());
+            },
+            child: Text(
+              'Try again',
+              style: GoogleFonts.mulish(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: LightColor.accent,
+              ),
             ),
           ),
         ],
@@ -440,49 +512,69 @@ class _CalendarPageState extends State<CalendarPage> {
         onTap: _onNavTap,
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 20),
-                // Page title
-                Text(
-                  'Calendar',
-                  style: GoogleFonts.mulish(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w800,
-                    color: LightColor.titleTextColor,
-                  ),
+        child: BlocBuilder<SubscriptionBloc, SubscriptionState>(
+          builder: (context, state) {
+            if (state is SubscriptionLoading) {
+              return _buildLoadingState();
+            }
+
+            if (state is SubscriptionError) {
+              return _buildErrorState(state.message);
+            }
+
+            // Get subscriptions from state
+            List<SubscriptionModel> subscriptions = [];
+            if (state is SubscriptionLoaded) {
+              subscriptions = state.subscriptions;
+            }
+
+            final groupedSubs = _groupSubscriptionsByDate(subscriptions);
+
+            return SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 20),
+                    // Page title
+                    Text(
+                      'Calendar',
+                      style: GoogleFonts.mulish(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        color: LightColor.titleTextColor,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Month navigation
+                    _buildMonthHeader(subscriptions),
+
+                    // Weekday headers
+                    _buildWeekdayHeader(),
+
+                    // Calendar grid
+                    _buildCalendarGrid(groupedSubs),
+                    const SizedBox(height: 24),
+
+                    // Selected date details
+                    Text(
+                      'Charges',
+                      style: GoogleFonts.mulish(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: LightColor.titleTextColor,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildSelectedDateDetails(groupedSubs),
+                    const SizedBox(height: 24),
+                  ],
                 ),
-                const SizedBox(height: 20),
-
-                // Month navigation
-                _buildMonthHeader(),
-
-                // Weekday headers
-                _buildWeekdayHeader(),
-
-                // Calendar grid
-                _buildCalendarGrid(),
-                const SizedBox(height: 24),
-
-                // Selected date details
-                Text(
-                  'Charges',
-                  style: GoogleFonts.mulish(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: LightColor.titleTextColor,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _buildSelectedDateDetails(),
-                const SizedBox(height: 24),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         ),
       ),
     );

@@ -10,7 +10,18 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from app.core.config import settings
 from app.db.base import Base
-from app.models import Tenant, User, Subscription, Alert  # Import all models
+# Import all models to register them with SQLAlchemy
+from app.models import (
+    Tenant,
+    User,
+    Subscription,
+    Alert,
+    BankConnection,
+    BankAccount,
+    Transaction,
+    EmailConnection,
+    ScannedEmail,
+)
 
 config = context.config
 

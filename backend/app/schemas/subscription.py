@@ -23,8 +23,8 @@ AIFlagType = Literal[
     "forgotten",
 ]
 
-# Strict typing for source
-SourceType = Literal["manual", "plaid", "gmail", "ai_detected"]
+# Strict typing for source - supports all email providers
+SourceType = Literal["manual", "plaid", "gmail", "outlook", "yahoo", "email", "ai_detected"]
 
 
 class SubscriptionCreate(BaseModel):
@@ -32,7 +32,7 @@ class SubscriptionCreate(BaseModel):
 
     name: str = Field(..., min_length=1, max_length=255)
     description: str | None = Field(default=None, max_length=1000)
-    amount: Decimal = Field(..., gt=0, decimal_places=2)
+    amount: Decimal = Field(..., gt=0)
     currency: str = Field(default="USD", min_length=3, max_length=3)
     billing_cycle: BillingCycleType
     next_billing_date: date
@@ -54,7 +54,7 @@ class SubscriptionUpdate(BaseModel):
 
     name: str | None = Field(default=None, min_length=1, max_length=255)
     description: str | None = Field(default=None, max_length=1000)
-    amount: Decimal | None = Field(default=None, gt=0, decimal_places=2)
+    amount: Decimal | None = Field(default=None, gt=0)
     billing_cycle: BillingCycleType | None = None
     next_billing_date: date | None = None
     is_active: bool | None = None
@@ -64,14 +64,14 @@ class SubscriptionUpdate(BaseModel):
     logo_url: str | None = Field(default=None, max_length=500)
 
 
-class SubscriptionResponse(BaseSchema, TimestampSchema, TenantSchema):
+class SubscriptionResponse(TimestampSchema, TenantSchema):
     """Subscription response schema."""
 
     id: UUID
     user_id: UUID
     name: str
     description: str | None
-    amount: Decimal
+    amount: float
     currency: str
     billing_cycle: str
     next_billing_date: date
@@ -82,7 +82,7 @@ class SubscriptionResponse(BaseSchema, TimestampSchema, TenantSchema):
     ai_flag: str
     ai_flag_reason: str | None
     last_usage_detected: datetime | None
-    previous_amount: Decimal | None
+    previous_amount: float | None
     source: str
     color: str | None
     icon: str | None
@@ -94,6 +94,26 @@ class SubscriptionListResponse(BaseModel):
 
     subscriptions: list[SubscriptionResponse]
     total_count: int
-    monthly_total: Decimal
-    yearly_total: Decimal
+    monthly_total: float
+    yearly_total: float
     flagged_count: int
+
+
+class AIFlagSummaryResponse(BaseModel):
+    """AI flag analysis summary response."""
+
+    total_subscriptions: int = Field(..., description="Total active subscriptions")
+    flagged_count: int = Field(..., description="Total flagged subscriptions")
+    unused_count: int = Field(..., description="Subscriptions not used recently")
+    duplicate_count: int = Field(..., description="Potential duplicate subscriptions")
+    price_increase_count: int = Field(..., description="Subscriptions with price increases")
+    trial_ending_count: int = Field(..., description="Trials ending soon")
+    forgotten_count: int = Field(..., description="Forgotten subscriptions")
+    potential_monthly_savings: float = Field(..., description="Potential savings per month")
+
+
+class AnalyzeResponse(BaseModel):
+    """Response from AI flag analysis."""
+
+    flagged_count: int = Field(..., description="Number of subscriptions flagged")
+    message: str = Field(..., description="Analysis result message")

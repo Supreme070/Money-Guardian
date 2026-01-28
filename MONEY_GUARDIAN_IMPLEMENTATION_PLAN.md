@@ -530,7 +530,7 @@ Step 3 of 3: Connect Email (Optional)
 
 ### Mobile Foundation Status
 
-> **Approach:** Option A - Building on existing UI template (flutter_wallet_app)
+> **Approach:** Option A - Building on existing UI template (wallet_app)
 
 | Component | Status | Notes |
 |-----------|--------|-------|
@@ -701,7 +701,7 @@ Each alert includes: why it happened, what to do, snooze/resolve options
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        MOBILE (Flutter)                         │
+│                        MOBILE (Dart)                         │
 │  iOS + Android | Dart | BLoC State Management | Clean Arch      │
 └─────────────────────────────────────────────────────────────────┘
                                 │
@@ -723,7 +723,7 @@ Each alert includes: why it happened, what to do, snooze/resolve options
 
 | Layer | Technology | Version | Rationale |
 |-------|------------|---------|-----------|
-| **Mobile** | Flutter | 3.x | Cross-platform, single codebase, excellent performance, security |
+| **Mobile** | Dart | 3.x | Cross-platform, single codebase, excellent performance, security |
 | **Mobile State** | flutter_bloc | 8.x | Predictable state management, testable |
 | **Backend** | FastAPI | 0.109+ | Async-first, great ML integration, type hints |
 | **Database** | PostgreSQL | 15+ | ACID compliance, JSON support, financial data integrity |
@@ -784,7 +784,7 @@ This architecture follows 2025-2026 fintech best practices:
 ┌──────────────┐      HTTPS       ┌──────────────┐                ┌──────────────┐
 │              │  ───────────────▶│              │ ──────────────▶│              │
 │  Mobile App  │                  │   Backend    │                │   Database   │
-│  (Flutter)   │◀─────────────────│   (FastAPI)  │◀───────────────│ (PostgreSQL) │
+│   (Dart)     │◀─────────────────│   (FastAPI)  │◀───────────────│ (PostgreSQL) │
 │              │      JSON        │              │                │              │
 └──────────────┘                  └──────────────┘                └──────────────┘
                                          │
@@ -839,7 +839,7 @@ class UserResponse(BaseModel):
 def get_user(user_id: str) -> UserResponse:
 ```
 
-**Dart (Flutter) — Explicit types:**
+**Dart — Explicit types:**
 ```dart
 // ❌ NEVER
 dynamic data = response.data;
@@ -1134,7 +1134,7 @@ async def create_subscription(
 
 | Layer | Technology | Responsibility |
 |-------|------------|----------------|
-| **Mobile** | Flutter (Dart) | UI rendering, local state, API calls, push handling, offline cache |
+| **Mobile** | Dart | UI rendering, local state, API calls, push handling, offline cache |
 | **API Gateway** | nginx / AWS ALB | SSL termination, rate limiting, load balancing, request routing |
 | **API Layer** | FastAPI routes | Request validation, authentication, response formatting |
 | **Service Layer** | Python classes | Business logic, orchestration, external API calls |
@@ -1328,7 +1328,7 @@ async def create_subscription(
 │   ├── .env.example
 │   └── pyproject.toml
 │
-├── mobile/                             # Flutter app (see Section 7)
+├── mobile/                             # Money Guardian mobile app (see Section 7)
 ├── docs/                               # Documentation
 ├── infrastructure/                     # Terraform/K8s configs
 └── .github/workflows/                  # CI/CD pipelines
@@ -2887,14 +2887,14 @@ class EncryptionService:
 - Set up PostgreSQL database
 - Configure Alembic for migrations
 - Set up Redis for caching
-- Initialize Flutter project
+- Initialize mobile project
 - Configure Firebase project
 - Set up GitHub repository and CI/CD
 
 **Week 2: Authentication**
 - Implement Firebase Auth integration (backend)
 - Create auth endpoints (register, login, refresh, logout)
-- Build Flutter auth screens (login, register, forgot password)
+- Build mobile auth screens (login, register, forgot password)
 - Implement secure token storage (mobile)
 - Add session management
 
@@ -2923,7 +2923,7 @@ class EncryptionService:
 - Add balance refresh endpoints
 
 **Week 6: Mobile Banking UI**
-- Integrate Plaid Link SDK in Flutter
+- Integrate Plaid Link SDK in mobile
 - Build accounts list screen
 - Create transactions list with search
 - Implement pull-to-refresh sync
@@ -3015,7 +3015,7 @@ class EncryptionService:
 | Set up PostgreSQL database | [ ] Not Started | - | With multi-tenant schema |
 | Configure Alembic migrations | [ ] Not Started | - | - |
 | Set up Redis | [ ] Not Started | - | - |
-| Initialize Flutter project | [x] Complete | - | Built on flutter_wallet_app template |
+| Initialize mobile project | [x] Complete | - | Built on wallet_app template |
 | Configure Firebase project | [ ] Not Started | - | Auth only (not Firestore) |
 | Set up GitHub repo + CI/CD | [x] Complete | - | github.com/Supreme070/Money-Guardian |
 | Create .env.example | [ ] Not Started | - | - |
@@ -3039,8 +3039,8 @@ class EncryptionService:
 | POST /auth/refresh endpoint | [ ] Not Started | - | - |
 | DELETE /auth/logout endpoint | [ ] Not Started | - | - |
 | DELETE /auth/account endpoint | [ ] Not Started | - | - |
-| Flutter login screen | [ ] Not Started | - | - |
-| Flutter register screen | [ ] Not Started | - | - |
+| Mobile login screen | [ ] Not Started | - | - |
+| Mobile register screen | [ ] Not Started | - | - |
 | Secure token storage (mobile) | [ ] Not Started | - | - |
 | Session management | [ ] Not Started | - | - |
 
@@ -3109,7 +3109,7 @@ class EncryptionService:
 | Task | Status | Assignee | Notes |
 |------|--------|----------|-------|
 | Plaid Link SDK integration | [ ] Not Started | - | - |
-| Link bank flow (Flutter) | [ ] Not Started | - | - |
+| Link bank flow (Mobile) | [ ] Not Started | - | - |
 | Accounts list screen | [ ] Not Started | - | - |
 | Account detail screen | [ ] Not Started | - | - |
 | Transactions list screen | [ ] Not Started | - | - |
@@ -3135,7 +3135,7 @@ class EncryptionService:
 | GET /pulse/history endpoint | [ ] Not Started | - | - |
 | GET /pulse/breakdown endpoint | [ ] Not Started | - | - |
 | Pulse caching (Redis) | [ ] Not Started | - | - |
-| Home screen (Flutter) | [ ] Not Started | - | - |
+| Home screen (Mobile) | [ ] Not Started | - | - |
 | Pulse status card widget | [ ] Not Started | - | - |
 | Safe-to-spend widget | [ ] Not Started | - | - |
 | Upcoming bills widget | [ ] Not Started | - | - |
@@ -3179,7 +3179,7 @@ class EncryptionService:
 | Alert processing Celery task | [ ] Not Started | - | - |
 | Alerts center screen | [ ] Not Started | - | - |
 | Alert card widget | [ ] Not Started | - | - |
-| Push notification handling (Flutter) | [ ] Not Started | - | - |
+| Push notification handling (Mobile) | [ ] Not Started | - | - |
 | Alerts BLoC | [ ] Not Started | - | - |
 
 **Week 9 Progress: 0/13 tasks (0%)**
@@ -3221,7 +3221,7 @@ class EncryptionService:
 | Email receipt parser | [ ] Not Started | - | - |
 | Receipt-subscription matcher | [ ] Not Started | - | - |
 | Gmail scan Celery task | [ ] Not Started | - | - |
-| Gmail connection screen (Flutter) | [ ] Not Started | - | - |
+| Gmail connection screen (Mobile) | [ ] Not Started | - | - |
 
 **Week 11 Progress: 0/11 tasks (0%)**
 
@@ -3244,7 +3244,7 @@ class EncryptionService:
 | POST /billing/cancel endpoint | [ ] Not Started | - | - |
 | Stripe webhook handler | [ ] Not Started | - | - |
 | Feature gating middleware | [ ] Not Started | - | - |
-| Paywall screen (Flutter) | [ ] Not Started | - | - |
+| Paywall screen (Mobile) | [ ] Not Started | - | - |
 | Pro features screen | [ ] Not Started | - | - |
 | Billing BLoC | [ ] Not Started | - | - |
 
@@ -3474,7 +3474,7 @@ At 20% conversion: Need 2,635 total users to break even
 3. `/backend/app/models/user.py` - User model
 4. `/backend/app/services/plaid_service.py` - Plaid integration
 5. `/backend/app/ai/safe_to_spend.py` - Core algorithm
-6. `/mobile/lib/main.dart` - Flutter entry point
+6. `/mobile/lib/main.dart` - Mobile entry point
 7. `/mobile/lib/presentation/pages/home/home_page.dart` - Pulse screen
 
 ### Commands to Start
@@ -3489,8 +3489,7 @@ uvicorn app.main:app --reload
 
 # Mobile setup
 cd mobile
-flutter pub get
-flutter run
+# Install dependencies and run from mobile directory
 
 # Database
 docker-compose up -d postgres redis

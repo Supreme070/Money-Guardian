@@ -11,18 +11,20 @@
 
 ## Tech Stack
 
-- **Mobile**: Flutter (iOS & Android)
-- **State Management**: flutter_bloc
-- **Backend**: (Coming soon)
+- **Mobile**: Dart (iOS & Android)
+- **State Management**: BLoC pattern
+- **Backend**: FastAPI + PostgreSQL + Redis
 - **AI/ML**: Subscription waste detection, spending pattern analysis
 
 ## Project Structure
 
 ```
 money guardian/
-├── mobile/              # Flutter mobile app
+├── mobile/              # Money Guardian mobile app
 │   ├── lib/
 │   │   ├── core/       # Core utilities, DI, network
+│   │   ├── data/       # Models, repositories
+│   │   ├── presentation/ # BLoCs
 │   │   ├── src/        # UI components
 │   │   │   ├── pages/  # App screens
 │   │   │   ├── widgets/# Reusable widgets
@@ -30,6 +32,10 @@ money guardian/
 │   │   └── main.dart   # App entry point
 │   ├── android/        # Android configuration
 │   └── ios/            # iOS configuration
+├── backend/            # FastAPI backend
+│   ├── app/            # API code
+│   ├── docker-compose.yml
+│   └── Dockerfile
 ├── CLAUDE.md           # AI assistant context
 └── MONEY_GUARDIAN_IMPLEMENTATION_PLAN.md
 ```
@@ -37,16 +43,18 @@ money guardian/
 ## Getting Started
 
 ### Prerequisites
-- Flutter SDK (3.x)
-- Dart SDK
+- Dart SDK (3.x)
 - Android Studio / Xcode
+- Docker (for backend)
 
-### Run the App
+### Run the Backend
 ```bash
-cd mobile
-flutter pub get
-flutter run
+cd backend
+docker-compose up -d
 ```
+
+### Run the Mobile App
+From the `mobile/` directory, install dependencies and run on your device/simulator.
 
 ## Brand Colors
 

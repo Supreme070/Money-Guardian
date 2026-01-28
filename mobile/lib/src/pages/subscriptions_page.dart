@@ -1,9 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:money_guardian/src/theme/light_color.dart';
-import 'package:money_guardian/src/widgets/subscription_card.dart';
-import 'package:money_guardian/src/widgets/bottom_navigation_bar.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:money_guardian/core/utils/currency_formatter.dart';
+
+import '../../core/utils/currency_formatter.dart';
+import '../../core/utils/model_mappers.dart';
+import '../../data/models/subscription_model.dart';
+import '../../presentation/blocs/subscriptions/subscription_bloc.dart';
+import '../../presentation/blocs/subscriptions/subscription_event.dart';
+import '../../presentation/blocs/subscriptions/subscription_state.dart';
+import '../theme/light_color.dart';
+import '../widgets/subscription_card.dart';
+import '../widgets/bottom_navigation_bar.dart';
+import 'subscription_detail_page.dart';
 
 class SubscriptionsPage extends StatefulWidget {
   const SubscriptionsPage({Key? key}) : super(key: key);
@@ -17,67 +25,11 @@ class _SubscriptionsPageState extends State<SubscriptionsPage> {
   String _selectedFilter = 'all';
   String _selectedSort = 'name';
 
-  // Mock data - will be replaced with actual state management
-  final double _monthlyTotal = 87.94;
-  final int _totalSubscriptions = 8;
-  final int _flaggedCount = 2;
-
-  final List<Map<String, dynamic>> _subscriptions = [
-    {
-      'name': 'Netflix',
-      'amount': 15.99,
-      'billingCycle': 'monthly',
-      'nextBillingDate': DateTime.now().add(const Duration(days: 2)),
-      'flag': SubscriptionFlag.none,
-      'iconColor': const Color(0xffE50914),
-      'isActive': true,
-    },
-    {
-      'name': 'Spotify',
-      'amount': 9.99,
-      'billingCycle': 'monthly',
-      'nextBillingDate': DateTime.now().add(const Duration(days: 4)),
-      'flag': SubscriptionFlag.none,
-      'iconColor': const Color(0xff1DB954),
-      'isActive': true,
-    },
-    {
-      'name': 'Adobe Creative Cloud',
-      'amount': 54.99,
-      'billingCycle': 'monthly',
-      'nextBillingDate': DateTime.now().add(const Duration(days: 12)),
-      'flag': SubscriptionFlag.unused,
-      'iconColor': const Color(0xffFF0000),
-      'isActive': true,
-    },
-    {
-      'name': 'iCloud Storage',
-      'amount': 2.99,
-      'billingCycle': 'monthly',
-      'nextBillingDate': DateTime.now().add(const Duration(days: 6)),
-      'flag': SubscriptionFlag.none,
-      'iconColor': const Color(0xff007AFF),
-      'isActive': true,
-    },
-    {
-      'name': 'Amazon Prime',
-      'amount': 14.99,
-      'billingCycle': 'monthly',
-      'nextBillingDate': DateTime.now().add(const Duration(days: 18)),
-      'flag': SubscriptionFlag.duplicate,
-      'iconColor': const Color(0xffFF9900),
-      'isActive': true,
-    },
-    {
-      'name': 'Gym Membership',
-      'amount': 29.99,
-      'billingCycle': 'monthly',
-      'nextBillingDate': DateTime.now().add(const Duration(days: 25)),
-      'flag': SubscriptionFlag.forgotten,
-      'iconColor': const Color(0xff6366F1),
-      'isActive': false,
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    context.read<SubscriptionBloc>().add(const SubscriptionLoadRequested());
+  }
 
   void _onNavTap(int index) {
     if (index == _currentNavIndex) return;
@@ -86,10 +38,9 @@ class _SubscriptionsPageState extends State<SubscriptionsPage> {
     });
     switch (index) {
       case 0:
-        Navigator.pushReplacementNamed(context, '/');
+        Navigator.pushReplacementNamed(context, '/home');
         break;
       case 1:
-        // Already on subscriptions
         break;
       case 2:
         Navigator.pushReplacementNamed(context, '/calendar');
@@ -100,31 +51,31 @@ class _SubscriptionsPageState extends State<SubscriptionsPage> {
     }
   }
 
-  List<Map<String, dynamic>> get _filteredSubscriptions {
-    var filtered = _subscriptions;
+  List<SubscriptionModel> _filterAndSort(List<SubscriptionModel> subscriptions) {
+    var filtered = List<SubscriptionModel>.from(subscriptions);
 
     // Apply filter
     if (_selectedFilter == 'flagged') {
-      filtered = filtered.where((s) => s['flag'] != SubscriptionFlag.none).toList();
+      filtered = filtered.where((s) => s.aiFlag != AIFlag.none).toList();
     } else if (_selectedFilter == 'active') {
-      filtered = filtered.where((s) => s['isActive'] == true).toList();
+      filtered = filtered.where((s) => s.isActive && !s.isPaused).toList();
     } else if (_selectedFilter == 'paused') {
-      filtered = filtered.where((s) => s['isActive'] == false).toList();
+      filtered = filtered.where((s) => s.isPaused || !s.isActive).toList();
     }
 
     // Apply sort
     if (_selectedSort == 'name') {
-      filtered.sort((a, b) => (a['name'] as String).compareTo(b['name'] as String));
+      filtered.sort((a, b) => a.name.compareTo(b.name));
     } else if (_selectedSort == 'amount') {
-      filtered.sort((a, b) => (b['amount'] as double).compareTo(a['amount'] as double));
+      filtered.sort((a, b) => b.amount.compareTo(a.amount));
     } else if (_selectedSort == 'date') {
-      filtered.sort((a, b) => (a['nextBillingDate'] as DateTime).compareTo(b['nextBillingDate'] as DateTime));
+      filtered.sort((a, b) => a.nextBillingDate.compareTo(b.nextBillingDate));
     }
 
     return filtered;
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(SubscriptionLoaded state) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -156,7 +107,7 @@ class _SubscriptionsPageState extends State<SubscriptionsPage> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    CurrencyFormatter.format(_monthlyTotal),
+                    CurrencyFormatter.format(state.monthlyTotal),
                     style: GoogleFonts.mulish(
                       fontSize: 32,
                       fontWeight: FontWeight.w800,
@@ -174,7 +125,7 @@ class _SubscriptionsPageState extends State<SubscriptionsPage> {
                 child: Column(
                   children: [
                     Text(
-                      '$_totalSubscriptions',
+                      '${state.totalCount}',
                       style: GoogleFonts.mulish(
                         fontSize: 24,
                         fontWeight: FontWeight.w800,
@@ -194,7 +145,7 @@ class _SubscriptionsPageState extends State<SubscriptionsPage> {
               ),
             ],
           ),
-          if (_flaggedCount > 0) ...[
+          if (state.flaggedCount > 0) ...[
             const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -212,7 +163,7 @@ class _SubscriptionsPageState extends State<SubscriptionsPage> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'AI found $_flaggedCount subscriptions you might want to review',
+                      'AI found ${state.flaggedCount} subscriptions you might want to review',
                       style: GoogleFonts.mulish(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
@@ -343,8 +294,8 @@ class _SubscriptionsPageState extends State<SubscriptionsPage> {
     );
   }
 
-  Widget _buildSubscriptionsList() {
-    final filtered = _filteredSubscriptions;
+  Widget _buildSubscriptionsList(List<SubscriptionModel> subscriptions) {
+    final filtered = _filterAndSort(subscriptions);
 
     if (filtered.isEmpty) {
       return Center(
@@ -352,7 +303,7 @@ class _SubscriptionsPageState extends State<SubscriptionsPage> {
           padding: const EdgeInsets.all(40),
           child: Column(
             children: [
-              Icon(
+              const Icon(
                 Icons.search_off_rounded,
                 size: 48,
                 color: LightColor.grey,
@@ -374,19 +325,73 @@ class _SubscriptionsPageState extends State<SubscriptionsPage> {
 
     return Column(
       children: filtered.map((sub) {
+        final colorValue = parseColorFromHex(sub.color);
+
         return SubscriptionCard(
-          name: sub['name'],
-          amount: sub['amount'],
-          billingCycle: sub['billingCycle'],
-          nextBillingDate: sub['nextBillingDate'],
-          flag: sub['flag'],
-          iconColor: sub['iconColor'],
-          isActive: sub['isActive'],
+          name: sub.name,
+          amount: sub.amount,
+          billingCycle: mapBillingCycleToString(sub.billingCycle),
+          nextBillingDate: sub.nextBillingDate,
+          flag: mapAIFlagToWidget(sub.aiFlag),
+          iconColor: colorValue != null ? Color(colorValue) : null,
+          logoUrl: sub.logoUrl,
+          isActive: sub.isActive && !sub.isPaused,
           onTap: () {
-            // Navigate to subscription detail
+            Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (context) => SubscriptionDetailPage(subscription: sub),
+              ),
+            );
           },
         );
       }).toList(),
+    );
+  }
+
+  Widget _buildLoadingState() {
+    return const Center(
+      child: CircularProgressIndicator(
+        color: LightColor.accent,
+      ),
+    );
+  }
+
+  Widget _buildErrorState(String message) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(
+            Icons.error_outline_rounded,
+            color: LightColor.freeze,
+            size: 48,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Something went wrong',
+            style: GoogleFonts.mulish(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: LightColor.titleTextColor,
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextButton(
+            onPressed: () {
+              context.read<SubscriptionBloc>().add(const SubscriptionLoadRequested());
+            },
+            child: Text(
+              'Try again',
+              style: GoogleFonts.mulish(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: LightColor.accent,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -400,67 +405,140 @@ class _SubscriptionsPageState extends State<SubscriptionsPage> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          // Add new subscription
+          Navigator.pushNamed(context, '/add-subscription');
         },
         backgroundColor: LightColor.accent,
         child: const Icon(Icons.add, color: Colors.white),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 20),
-                // Page title
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Subscriptions',
-                      style: GoogleFonts.mulish(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w800,
-                        color: LightColor.titleTextColor,
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: () {
-                        // Search
-                      },
-                      child: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: LightColor.lightGrey,
-                          borderRadius: BorderRadius.circular(12),
+        child: BlocBuilder<SubscriptionBloc, SubscriptionState>(
+          builder: (context, state) {
+            if (state is SubscriptionLoading) {
+              return _buildLoadingState();
+            }
+
+            if (state is SubscriptionError) {
+              return _buildErrorState(state.message);
+            }
+
+            if (state is SubscriptionLoaded) {
+              return RefreshIndicator(
+                onRefresh: () async {
+                  context.read<SubscriptionBloc>().add(const SubscriptionLoadRequested());
+                },
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 20),
+                        // Page title
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Subscriptions',
+                              style: GoogleFonts.mulish(
+                                fontSize: 24,
+                                fontWeight: FontWeight.w800,
+                                color: LightColor.titleTextColor,
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: () {
+                                // Search
+                              },
+                              child: Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: LightColor.lightGrey,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Icon(
+                                  Icons.search_rounded,
+                                  color: LightColor.darkgrey,
+                                  size: 22,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                        child: const Icon(
-                          Icons.search_rounded,
-                          color: LightColor.darkgrey,
-                          size: 22,
-                        ),
-                      ),
+                        const SizedBox(height: 20),
+
+                        // Header with monthly spend
+                        _buildHeader(state),
+                        const SizedBox(height: 24),
+
+                        // Filter and sort
+                        _buildFilterSort(),
+                        const SizedBox(height: 20),
+
+                        // Subscriptions list
+                        _buildSubscriptionsList(state.subscriptions),
+                        const SizedBox(height: 80), // Space for FAB
+                      ],
                     ),
-                  ],
+                  ),
                 ),
-                const SizedBox(height: 20),
+              );
+            }
 
-                // Header with monthly spend
-                _buildHeader(),
-                const SizedBox(height: 24),
+            if (state is SubscriptionOperationInProgress) {
+              return Stack(
+                children: [
+                  // Show previous state content
+                  RefreshIndicator(
+                    onRefresh: () async {},
+                    child: SingleChildScrollView(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 20),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Subscriptions',
+                                  style: GoogleFonts.mulish(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.w800,
+                                    color: LightColor.titleTextColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 20),
+                            _buildHeader(state.previousState),
+                            const SizedBox(height: 24),
+                            _buildFilterSort(),
+                            const SizedBox(height: 20),
+                            _buildSubscriptionsList(state.previousState.subscriptions),
+                            const SizedBox(height: 80),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  // Loading overlay
+                  Container(
+                    color: Colors.black.withOpacity(0.1),
+                    child: const Center(
+                      child: CircularProgressIndicator(
+                        color: LightColor.accent,
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            }
 
-                // Filter and sort
-                _buildFilterSort(),
-                const SizedBox(height: 20),
-
-                // Subscriptions list
-                _buildSubscriptionsList(),
-                const SizedBox(height: 80), // Space for FAB
-              ],
-            ),
-          ),
+            return _buildLoadingState();
+          },
         ),
       ),
     );

@@ -1,5 +1,7 @@
 """Authentication service - handles user registration and login."""
 
+import secrets
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from sqlalchemy import select
@@ -36,6 +38,12 @@ class InvalidCredentialsError(AuthServiceError):
 
 class UserNotFoundError(AuthServiceError):
     """Raised when user is not found."""
+
+    pass
+
+
+class InvalidResetTokenError(AuthServiceError):
+    """Raised when password reset token is invalid or expired."""
 
     pass
 
@@ -81,7 +89,7 @@ class AuthService:
             hashed_password=get_password_hash(request.password),
             full_name=request.full_name,
             is_active=True,
-            is_verified=False,  # TODO: Email verification
+            is_verified=False,
         )
         self.db.add(user)
         await self.db.flush()  # Get user.id
@@ -94,6 +102,17 @@ class AuthService:
         )
 
         await self.db.commit()
+
+        # Send verification email (non-blocking, don't fail registration)
+        try:
+            from app.services.email_sender_service import EmailSenderService
+            email_service = EmailSenderService(self.db)
+            await email_service.send_verification_email(
+                user_id=str(user.id),
+                email=user.email,
+            )
+        except Exception:
+            pass  # Registration succeeds even if email fails
         await self.db.refresh(user)
 
         return user, tokens
@@ -159,3 +178,70 @@ class AuthService:
             tenant_id=user.tenant_id,
             email=user.email,
         )
+
+    async def request_password_reset(self, email: str) -> str | None:
+        """
+        Request a password reset.
+
+        Generates a secure token and stores it with 1-hour expiry.
+        Returns the token (for email sending) or None if user not found.
+
+        Note: Caller should always return success to prevent email enumeration.
+        """
+        # Find user by email
+        result = await self.db.execute(select(User).where(User.email == email))
+        user = result.scalar_one_or_none()
+
+        if user is None:
+            return None
+
+        # Generate secure token
+        token = secrets.token_urlsafe(32)
+        expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
+
+        # Store token
+        user.password_reset_token = token
+        user.password_reset_token_expires_at = expires_at
+
+        await self.db.commit()
+
+        return token
+
+    async def confirm_password_reset(
+        self,
+        token: str,
+        new_password: str,
+    ) -> None:
+        """
+        Confirm password reset with token.
+
+        Validates token and updates password.
+        Raises InvalidResetTokenError if token is invalid or expired.
+        """
+        # Find user by reset token
+        result = await self.db.execute(
+            select(User).where(User.password_reset_token == token)
+        )
+        user = result.scalar_one_or_none()
+
+        if user is None:
+            raise InvalidResetTokenError("Invalid or expired reset token")
+
+        # Check expiration
+        if (
+            user.password_reset_token_expires_at is None
+            or user.password_reset_token_expires_at.replace(tzinfo=timezone.utc)
+            < datetime.now(timezone.utc)
+        ):
+            # Clear expired token
+            user.password_reset_token = None
+            user.password_reset_token_expires_at = None
+            await self.db.commit()
+            raise InvalidResetTokenError("Reset token has expired")
+
+        # Update password
+        user.hashed_password = get_password_hash(new_password)
+        user.password_reset_token = None
+        user.password_reset_token_expires_at = None
+
+        await self.db.commit()

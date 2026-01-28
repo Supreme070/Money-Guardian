@@ -1,9 +1,18 @@
 import 'package:flutter/material.dart';
-import 'package:money_guardian/src/theme/light_color.dart';
-import 'package:money_guardian/src/widgets/pulse_status_card.dart';
-import 'package:money_guardian/src/widgets/bottom_navigation_bar.dart';
-import 'package:money_guardian/src/widgets/upcoming_subscription_item.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
+
+import '../../data/models/pulse_model.dart';
+import '../../presentation/blocs/auth/auth_bloc.dart';
+import '../../presentation/blocs/auth/auth_state.dart';
+import '../../presentation/blocs/pulse/pulse_bloc.dart';
+import '../../presentation/blocs/pulse/pulse_event.dart';
+import '../../presentation/blocs/pulse/pulse_state.dart';
+import '../theme/light_color.dart';
+import '../theme/theme.dart';
+import '../widgets/balance_card.dart';
+import '../widgets/bottom_navigation_bar.dart';
+import '../widgets/upcoming_subscription_item.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -15,40 +24,18 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   int _currentNavIndex = 0;
 
-  // Mock data - will be replaced with actual state management
-  final PulseStatus _currentStatus = PulseStatus.safe;
-  final double _safeToSpend = 142.0;
-
-  // Mock upcoming subscriptions
-  final List<Map<String, dynamic>> _upcomingSubscriptions = [
-    {
-      'name': 'Netflix',
-      'amount': 15.99,
-      'dueDate': DateTime.now().add(const Duration(days: 2)),
-      'isWarning': false,
-    },
-    {
-      'name': 'Spotify',
-      'amount': 9.99,
-      'dueDate': DateTime.now().add(const Duration(days: 4)),
-      'isWarning': false,
-    },
-    {
-      'name': 'iCloud Storage',
-      'amount': 2.99,
-      'dueDate': DateTime.now().add(const Duration(days: 6)),
-      'isWarning': true,
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    context.read<PulseBloc>().add(const PulseLoadRequested());
+  }
 
   void _onNavTap(int index) {
     setState(() {
       _currentNavIndex = index;
     });
-    // Navigate to different pages
     switch (index) {
       case 0:
-        // Already on home
         break;
       case 1:
         Navigator.pushNamed(context, '/subscriptions');
@@ -62,225 +49,259 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Widget _buildAppBar() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: LightColor.navyBlue1,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Center(
-                  child: Icon(
-                    Icons.shield_rounded,
-                    color: LightColor.yellow,
-                    size: 20,
+  Widget _buildHeader() {
+    return BlocBuilder<AuthBloc, AuthState>(
+      builder: (context, authState) {
+        String userName = 'Guardian';
+        String userInitials = 'MG';
+
+        if (authState is AuthAuthenticated) {
+          userName = authState.user.fullName?.split(' ').first ?? 'Guardian';
+          userInitials = _getInitials(
+            authState.user.fullName ?? authState.user.email,
+          );
+        }
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: <Widget>[
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    'Hello,',
+                    style: GoogleFonts.mulish(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: LightColor.subTitleTextColor,
+                    ),
                   ),
-                ),
+                  Text(
+                    userName,
+                    style: GoogleFonts.mulish(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: LightColor.titleTextColor,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 10),
-              Text(
-                'Money Guardian',
-                style: GoogleFonts.mulish(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  color: LightColor.navyBlue1,
-                ),
+              Row(
+                children: [
+                  // Settings button
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.pushNamed(context, '/settings');
+                    },
+                    child: Container(
+                      height: 40,
+                      width: 40,
+                      decoration: BoxDecoration(
+                        color: LightColor.lightGrey,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.settings_rounded,
+                        color: LightColor.navyBlue1,
+                        size: 22,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // User avatar
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.pushNamed(context, '/settings');
+                    },
+                    child: Container(
+                      height: 40,
+                      width: 40,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [LightColor.accent, LightColor.navyBlue1],
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Center(
+                        child: Text(
+                          userInitials,
+                          style: GoogleFonts.mulish(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-          GestureDetector(
-            onTap: () => Navigator.pushNamed(context, '/settings'),
-            child: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: LightColor.lightGrey,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(
-                Icons.settings_rounded,
-                color: LightColor.darkgrey,
-                size: 22,
-              ),
-            ),
+        );
+      },
+    );
+  }
+
+  String _getInitials(String name) {
+    final parts = name.split(' ');
+    if (parts.length >= 2) {
+      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    }
+    return name.substring(0, name.length >= 2 ? 2 : 1).toUpperCase();
+  }
+
+  /// Quick Actions - unique from bottom navigation
+  /// Actions: Add Subscription, Connect Bank, Scan Email
+  Widget _buildQuickActions() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: <Widget>[
+          _buildQuickActionItem(
+            title: "Add",
+            subtitle: "Subscription",
+            icon: Icons.add_circle_outline_rounded,
+            color: LightColor.accent,
+            onTap: () {
+              Navigator.pushNamed(context, '/add-subscription');
+            },
+          ),
+          _buildQuickActionItem(
+            title: "Connect",
+            subtitle: "Bank",
+            icon: Icons.account_balance_rounded,
+            color: LightColor.success,
+            onTap: () {
+              Navigator.pushNamed(context, '/connect-bank');
+            },
+          ),
+          _buildQuickActionItem(
+            title: "Scan",
+            subtitle: "Email",
+            icon: Icons.email_outlined,
+            color: LightColor.warning,
+            onTap: () {
+              Navigator.pushNamed(context, '/connect-email');
+            },
           ),
         ],
       ),
     );
   }
 
-  Widget _buildSectionHeader(String title, {String? actionText, VoidCallback? onAction}) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          title,
-          style: GoogleFonts.mulish(
-            fontSize: 18,
-            fontWeight: FontWeight.w800,
-            color: LightColor.titleTextColor,
-          ),
-        ),
-        if (actionText != null)
-          GestureDetector(
-            onTap: onAction,
-            child: Text(
-              actionText,
-              style: GoogleFonts.mulish(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: LightColor.accent,
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildUpcomingSubscriptions() {
-    if (_upcomingSubscriptions.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(24),
+  Widget _buildQuickActionItem({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: (MediaQuery.of(context).size.width - 60) / 3,
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
         decoration: BoxDecoration(
-          color: LightColor.lightGrey.withOpacity(0.5),
-          borderRadius: BorderRadius.circular(16),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 10,
+              spreadRadius: 2,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Column(
-          children: [
-            Icon(
-              Icons.check_circle_outline_rounded,
-              color: LightColor.safe,
-              size: 48,
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Container(
+              height: 50,
+              width: 50,
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Icon(icon, color: color, size: 26),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             Text(
-              'No upcoming charges',
+              title,
               style: GoogleFonts.mulish(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: LightColor.titleTextColor,
+              ),
+            ),
+            Text(
+              subtitle,
+              style: GoogleFonts.mulish(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
                 color: LightColor.subTitleTextColor,
               ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              "You're all clear for the next 7 days",
-              style: GoogleFonts.mulish(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: LightColor.grey,
-              ),
-            ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUpcomingSubscriptions(PulseLoaded state) {
+    final upcomingCharges = state.pulse.upcomingCharges;
+
+    if (upcomingCharges.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.all(20),
+        child: Center(
+          child: Column(
+            children: [
+              Icon(
+                Icons.event_available_rounded,
+                size: 48,
+                color: LightColor.grey.withOpacity(0.5),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                "No upcoming charges",
+                style: GoogleFonts.mulish(
+                  color: LightColor.subTitleTextColor,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                "Add subscriptions to track them",
+                style: GoogleFonts.mulish(
+                  fontSize: 12,
+                  color: LightColor.grey,
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }
 
     return Column(
-      children: _upcomingSubscriptions.map((sub) {
+      children: upcomingCharges.take(5).map((charge) {
         return UpcomingSubscriptionItem(
-          name: sub['name'],
-          amount: sub['amount'],
-          dueDate: sub['dueDate'],
-          isWarning: sub['isWarning'],
+          name: charge.name,
+          amount: charge.amount,
+          dueDate: charge.date,
+          isWarning: charge.isWarning,
           onTap: () {
-            // Navigate to subscription detail
+            Navigator.pushNamed(context, '/subscriptions');
           },
         );
       }).toList(),
-    );
-  }
-
-  Widget _buildQuickStats() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: _buildStatItem(
-              icon: Icons.subscriptions_rounded,
-              label: 'Active Subs',
-              value: '8',
-              color: LightColor.accent,
-            ),
-          ),
-          Container(
-            width: 1,
-            height: 40,
-            color: LightColor.lightGrey,
-          ),
-          Expanded(
-            child: _buildStatItem(
-              icon: Icons.calendar_month_rounded,
-              label: 'This Month',
-              value: '\$87',
-              color: LightColor.navyBlue1,
-            ),
-          ),
-          Container(
-            width: 1,
-            height: 40,
-            color: LightColor.lightGrey,
-          ),
-          Expanded(
-            child: _buildStatItem(
-              icon: Icons.warning_rounded,
-              label: 'Alerts',
-              value: '2',
-              color: LightColor.caution,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatItem({
-    required IconData icon,
-    required String label,
-    required String value,
-    required Color color,
-  }) {
-    return Column(
-      children: [
-        Icon(icon, color: color, size: 20),
-        const SizedBox(height: 6),
-        Text(
-          value,
-          style: GoogleFonts.mulish(
-            fontSize: 18,
-            fontWeight: FontWeight.w800,
-            color: LightColor.titleTextColor,
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          label,
-          style: GoogleFonts.mulish(
-            fontSize: 11,
-            fontWeight: FontWeight.w500,
-            color: LightColor.subTitleTextColor,
-          ),
-        ),
-      ],
     );
   }
 
@@ -293,42 +314,134 @@ class _HomePageState extends State<HomePage> {
         onTap: _onNavTap,
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 20),
-                _buildAppBar(),
-                const SizedBox(height: 24),
+        child: BlocBuilder<PulseBloc, PulseState>(
+          builder: (context, state) {
+            // Default values
+            double safeToSpend = 0.0;
+            PulseStatus status = PulseStatus.safe;
+            String statusMessage = '';
 
-                // Daily Pulse Status Card
-                PulseStatusCard(
-                  status: _currentStatus,
-                  safeToSpend: _safeToSpend,
-                  onTap: () {
-                    // Show detailed breakdown
-                  },
+            if (state is PulseLoaded) {
+              safeToSpend = state.pulse.safeToSpend;
+              status = state.pulse.status;
+              statusMessage = state.pulse.statusMessage;
+            }
+
+            return RefreshIndicator(
+              onRefresh: () async {
+                context.read<PulseBloc>().add(const PulseRefreshRequested());
+              },
+              color: LightColor.accent,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    const SizedBox(height: 20),
+                    _buildHeader(),
+                    const SizedBox(height: 20),
+                    // Balance card with status indicator
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: BalanceCard(
+                        safeToSpend: safeToSpend,
+                        status: status,
+                        statusMessage: statusMessage,
+                      ),
+                    ),
+                    const SizedBox(height: 28),
+                    // Quick Actions section header
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Text(
+                        "Quick Actions",
+                        style: GoogleFonts.mulish(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: LightColor.titleTextColor,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    _buildQuickActions(),
+                    const SizedBox(height: 28),
+                    // Upcoming section header
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            "Upcoming",
+                            style: GoogleFonts.mulish(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: LightColor.titleTextColor,
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () {
+                              Navigator.pushNamed(context, '/calendar');
+                            },
+                            child: Text(
+                              "See all",
+                              style: GoogleFonts.mulish(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: LightColor.accent,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: state is PulseLoaded
+                          ? _buildUpcomingSubscriptions(state)
+                          : state is PulseLoading
+                              ? const Center(
+                                  child: Padding(
+                                    padding: EdgeInsets.all(20),
+                                    child: CircularProgressIndicator(
+                                      color: LightColor.accent,
+                                    ),
+                                  ),
+                                )
+                              : _buildEmptyUpcoming(),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
                 ),
-                const SizedBox(height: 24),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
 
-                // Quick Stats
-                _buildQuickStats(),
-                const SizedBox(height: 28),
-
-                // Next 7 Days
-                _buildSectionHeader(
-                  'Next 7 Days',
-                  actionText: 'See all',
-                  onAction: () => Navigator.pushNamed(context, '/calendar'),
-                ),
-                const SizedBox(height: 16),
-                _buildUpcomingSubscriptions(),
-                const SizedBox(height: 24),
-              ],
+  Widget _buildEmptyUpcoming() {
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Center(
+        child: Column(
+          children: [
+            Icon(
+              Icons.event_available_rounded,
+              size: 48,
+              color: LightColor.grey.withOpacity(0.5),
             ),
-          ),
+            const SizedBox(height: 12),
+            Text(
+              "No upcoming charges",
+              style: GoogleFonts.mulish(
+                color: LightColor.subTitleTextColor,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
         ),
       ),
     );

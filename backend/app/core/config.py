@@ -43,19 +43,72 @@ class Settings(BaseSettings):
     # Firebase (for auth verification)
     firebase_credentials_path: str | None = None
 
-    # External APIs
+    # External APIs - Plaid (USA/Canada)
     plaid_client_id: str | None = None
     plaid_secret: str | None = None
     plaid_environment: Literal["sandbox", "development", "production"] = "sandbox"
+    plaid_webhook_url: str | None = None
 
+    # Mono (Nigeria/Africa)
+    mono_secret_key: str | None = None
+    mono_public_key: str | None = None
+    mono_environment: Literal["test", "live"] = "test"
+
+    # Stitch (South Africa)
+    stitch_client_id: str | None = None
+    stitch_client_secret: str | None = None
+    stitch_redirect_uri: str = "http://localhost:8000/api/v1/banking/stitch/callback"
+    stitch_environment: Literal["test", "live"] = "test"
+
+    # TrueLayer (UK/Europe)
+    truelayer_client_id: str | None = None
+    truelayer_client_secret: str | None = None
+    truelayer_redirect_uri: str = "http://localhost:8000/api/v1/banking/truelayer/callback"
+    truelayer_environment: Literal["sandbox", "live"] = "sandbox"
+
+    # Tink (EU broad coverage)
+    tink_client_id: str | None = None
+    tink_client_secret: str | None = None
+    tink_redirect_uri: str = "http://localhost:8000/api/v1/banking/tink/callback"
+    tink_environment: Literal["sandbox", "production"] = "sandbox"
+
+    # Google OAuth (Gmail integration)
+    google_client_id: str | None = None
+    google_client_secret: str | None = None
+    google_redirect_uri: str = "http://localhost:8000/api/v1/email/oauth/callback"
+
+    # Microsoft OAuth (Outlook integration)
+    microsoft_client_id: str | None = None
+    microsoft_client_secret: str | None = None
+    microsoft_redirect_uri: str = "http://localhost:8000/api/v1/email/oauth/callback"
+
+    # Stripe (payments)
     stripe_secret_key: str | None = None
     stripe_webhook_secret: str | None = None
+    stripe_pro_price_id: str | None = None
 
-    # CORS
-    cors_origins: list[str] = ["http://localhost:3000", "http://localhost:8080"]
+    # Admin API
+    admin_api_key: str | None = None
+
+    # CORS - allow all localhost ports in development
+    cors_origins: list[str] = ["*"]
 
     # Rate Limiting
     rate_limit_per_minute: int = 60
+    auth_rate_limit_per_minute: int = 10  # Stricter for auth endpoints
+
+    # Email Sending (for verification & password reset)
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 587
+    smtp_user: str | None = None
+    smtp_password: str | None = None
+    smtp_from_email: str = "noreply@moneyguardian.app"
+    smtp_from_name: str = "Money Guardian"
+
+    # App URLs (for email links)
+    frontend_url: str = "https://app.moneyguardian.app"
+    email_verify_url: str = "{frontend_url}/verify-email?token={token}"
+    password_reset_url: str = "{frontend_url}/reset-password?token={token}"
 
     @property
     def async_database_url(self) -> str:

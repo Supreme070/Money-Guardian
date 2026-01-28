@@ -39,6 +39,8 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: money_guardian_api
+    env_file:
+      - .env
     environment:
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/money_guardian
       - REDIS_URL=redis://redis:6379/0
@@ -55,6 +57,66 @@ services:
     volumes:
       - .:/app
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Celery Worker (background tasks: sync, notifications, email scanning)
+  celery-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: money_guardian_celery_worker
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/money_guardian
+      - REDIS_URL=redis://redis:6379/0
+      - JWT_SECRET_KEY=dev-secret-key-change-in-production
+      - ENVIRONMENT=development
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    command: celery -A app.core.celery_app worker --loglevel=info --concurrency=4
+
+  # Celery Beat (scheduled tasks: periodic sync, notification checks)
+  celery-beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: money_guardian_celery_beat
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/money_guardian
+      - REDIS_URL=redis://redis:6379/0
+      - JWT_SECRET_KEY=dev-secret-key-change-in-production
+      - ENVIRONMENT=development
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    command: celery -A app.core.celery_app beat --loglevel=info
+
+  # Flower (Celery monitoring dashboard)
+  flower:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: money_guardian_flower
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - FLOWER_BASIC_AUTH=admin:changeme
+    ports:
+      - "5555:5555"
+    depends_on:
+      redis:
+        condition: service_healthy
+    command: celery -A app.core.celery_app flower --port=5555
 
 volumes:
   postgres_data:

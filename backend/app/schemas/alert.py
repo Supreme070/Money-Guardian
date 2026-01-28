@@ -25,7 +25,7 @@ AlertTypeEnum = Literal[
 AlertSeverityEnum = Literal["info", "warning", "critical"]
 
 
-class AlertResponse(BaseSchema, TimestampSchema, TenantSchema):
+class AlertResponse(TimestampSchema, TenantSchema):
     """Alert response schema."""
 
     id: UUID
@@ -35,7 +35,7 @@ class AlertResponse(BaseSchema, TimestampSchema, TenantSchema):
     severity: str
     title: str
     message: str
-    amount: Decimal | None
+    amount: float | None
     alert_date: datetime | None
     is_read: bool
     is_dismissed: bool

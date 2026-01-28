@@ -9,6 +9,7 @@ from sqlalchemy import select
 from app.api.deps import CurrentUserDep, DbSessionDep
 from app.models.alert import Alert
 from app.models.subscription import Subscription
+from app.models.bank_account import BankAccount
 from app.schemas.pulse import PulseResponse, PulseStatus, UpcomingCharge
 
 router = APIRouter()
@@ -118,9 +119,30 @@ async def get_pulse(
     )
     unread_alerts = len(list(alerts_result.scalars().all()))
 
-    # TODO: Get actual balance from Plaid
-    # For now, use mock balance
-    current_balance = Decimal("500.00")
+    # Get real balance from connected bank accounts (Pro feature)
+    # Falls back to mock balance if no accounts connected
+    accounts_result = await db.execute(
+        select(BankAccount).where(
+            BankAccount.tenant_id == tenant_id,
+            BankAccount.user_id == user_id,
+            BankAccount.is_active == True,
+            BankAccount.include_in_pulse == True,
+        )
+    )
+    bank_accounts = list(accounts_result.scalars().all())
+
+    if bank_accounts:
+        # Use real balance from connected accounts
+        current_balance = Decimal("0")
+        for acc in bank_accounts:
+            if acc.account_type in ("checking", "savings"):
+                balance = acc.available_balance or acc.current_balance or Decimal("0")
+                current_balance += balance
+    else:
+        # No bank connected - use mock balance for demo
+        current_balance = Decimal("500.00")
+
+    has_bank_connected = len(bank_accounts) > 0
 
     # Calculate safe-to-spend
     safe_to_spend = current_balance - upcoming_total

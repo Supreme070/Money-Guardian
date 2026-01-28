@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:money_guardian/src/theme/light_color.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:money_guardian/src/theme/light_color.dart';
 import 'package:money_guardian/core/utils/currency_formatter.dart';
 import 'package:money_guardian/core/utils/date_formatter.dart';
 
@@ -26,137 +26,70 @@ class UpcomingSubscriptionItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final daysUntil = DateFormatter.daysUntil(dueDate);
-    final isToday = daysUntil == 0;
-    final isTomorrow = daysUntil == 1;
-
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
+        margin: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10), // Minimal padding like List Tile
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: isWarning
-              ? Border.all(color: LightColor.caution.withOpacity(0.5), width: 1.5)
-              : null,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
+           color: Colors.white,
+           borderRadius: BorderRadius.circular(10),
+           boxShadow: [
+             BoxShadow(
+               color: Color(0xfff1f1f3).withOpacity(0.4),
+               blurRadius: 10,
+               spreadRadius: 10,
+               offset: const Offset(5, 5),
+             ),
+           ],
         ),
-        child: Row(
-          children: [
-            // Logo/Icon
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: LightColor.lightGrey,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: logoUrl != null
-                  ? ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Image.network(
-                        logoUrl!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => _buildIconPlaceholder(),
-                      ),
-                    )
-                  : _buildIconPlaceholder(),
+        child: ListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
+          leading: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: LightColor.navyBlue1,
+              borderRadius: BorderRadius.all(Radius.circular(10)),
             ),
-            const SizedBox(width: 14),
-            // Name and date
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    name,
-                    style: GoogleFonts.mulish(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: LightColor.titleTextColor,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.calendar_today_rounded,
-                        size: 12,
-                        color: isToday ? LightColor.freeze : LightColor.subTitleTextColor,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        _getDateLabel(isToday, isTomorrow, daysUntil),
-                        style: GoogleFonts.mulish(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: isToday ? LightColor.freeze : LightColor.subTitleTextColor,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+            child: Icon(
+              icon ?? Icons.subscriptions_rounded,
+              color: Colors.white,
+              size: 20,
             ),
-            // Amount
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  CurrencyFormatter.format(amount),
-                  style: GoogleFonts.mulish(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: LightColor.titleTextColor,
-                  ),
-                ),
-                if (isWarning) ...[
-                  const SizedBox(height: 4),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: LightColor.caution.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      'Low funds',
-                      style: GoogleFonts.mulish(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: LightColor.caution,
-                      ),
-                    ),
-                  ),
-                ],
-              ],
+          ),
+          title: Text(
+            name,
+            style: GoogleFonts.mulish(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: LightColor.titleTextColor,
             ),
-          ],
+          ),
+          subtitle: Text(
+            DateFormatter.formatShort(dueDate),
+            style: GoogleFonts.mulish(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: LightColor.subTitleTextColor,
+            ),
+          ),
+          trailing: Container(
+             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+             decoration: BoxDecoration(
+               color: LightColor.lightGrey,
+               borderRadius: BorderRadius.all(Radius.circular(10)),
+             ),
+             child: Text(
+               CurrencyFormatter.format(amount),
+               style: GoogleFonts.mulish(
+                 fontSize: 14,
+                 fontWeight: FontWeight.w700,
+                 color: LightColor.titleTextColor,
+               ),
+             ),
+          ),
         ),
       ),
     );
-  }
-
-  Widget _buildIconPlaceholder() {
-    return Center(
-      child: Icon(
-        icon ?? Icons.subscriptions_rounded,
-        color: LightColor.accent,
-        size: 24,
-      ),
-    );
-  }
-
-  String _getDateLabel(bool isToday, bool isTomorrow, int daysUntil) {
-    if (isToday) return 'Today';
-    if (isTomorrow) return 'Tomorrow';
-    return DateFormatter.formatShort(dueDate);
   }
 }

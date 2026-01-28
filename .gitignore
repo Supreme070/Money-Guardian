@@ -57,3 +57,4 @@ mobile/android/app/release/
 
 # Coverage
 coverage/
+backend/celerybeat-schedule
