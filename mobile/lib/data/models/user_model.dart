@@ -17,6 +17,57 @@ enum SubscriptionTier {
   }
 }
 
+/// Granular notification type preferences matching backend NotificationPreferences.
+class NotificationPreferences {
+  final bool overdraftWarnings;
+  final bool upcomingCharges;
+  final bool trialEndings;
+  final bool priceIncreases;
+  final bool unusedSubscriptions;
+
+  const NotificationPreferences({
+    this.overdraftWarnings = true,
+    this.upcomingCharges = true,
+    this.trialEndings = true,
+    this.priceIncreases = true,
+    this.unusedSubscriptions = true,
+  });
+
+  factory NotificationPreferences.fromJson(Map<String, bool> json) {
+    return NotificationPreferences(
+      overdraftWarnings: json['overdraft_warnings'] ?? true,
+      upcomingCharges: json['upcoming_charges'] ?? true,
+      trialEndings: json['trial_endings'] ?? true,
+      priceIncreases: json['price_increases'] ?? true,
+      unusedSubscriptions: json['unused_subscriptions'] ?? true,
+    );
+  }
+
+  Map<String, bool> toJson() => {
+        'overdraft_warnings': overdraftWarnings,
+        'upcoming_charges': upcomingCharges,
+        'trial_endings': trialEndings,
+        'price_increases': priceIncreases,
+        'unused_subscriptions': unusedSubscriptions,
+      };
+
+  NotificationPreferences copyWith({
+    bool? overdraftWarnings,
+    bool? upcomingCharges,
+    bool? trialEndings,
+    bool? priceIncreases,
+    bool? unusedSubscriptions,
+  }) {
+    return NotificationPreferences(
+      overdraftWarnings: overdraftWarnings ?? this.overdraftWarnings,
+      upcomingCharges: upcomingCharges ?? this.upcomingCharges,
+      trialEndings: trialEndings ?? this.trialEndings,
+      priceIncreases: priceIncreases ?? this.priceIncreases,
+      unusedSubscriptions: unusedSubscriptions ?? this.unusedSubscriptions,
+    );
+  }
+}
+
 class UserModel {
   final String id;
   final String tenantId;
@@ -27,6 +78,7 @@ class UserModel {
   final DateTime? lastLoginAt;
   final bool pushNotificationsEnabled;
   final bool emailNotificationsEnabled;
+  final NotificationPreferences notificationPreferences;
   final SubscriptionTier subscriptionTier;
   final DateTime? subscriptionExpiresAt;
   final bool onboardingCompleted;
@@ -43,6 +95,7 @@ class UserModel {
     this.lastLoginAt,
     required this.pushNotificationsEnabled,
     required this.emailNotificationsEnabled,
+    this.notificationPreferences = const NotificationPreferences(),
     required this.subscriptionTier,
     this.subscriptionExpiresAt,
     required this.onboardingCompleted,
@@ -71,6 +124,16 @@ class UserModel {
   }
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
+    final rawPrefs = json['notification_preferences'];
+    final NotificationPreferences prefs;
+    if (rawPrefs is Map<String, dynamic>) {
+      prefs = NotificationPreferences.fromJson(
+        rawPrefs.map((k, v) => MapEntry(k, v as bool)),
+      );
+    } else {
+      prefs = const NotificationPreferences();
+    }
+
     return UserModel(
       id: json['id'] as String,
       tenantId: json['tenant_id'] as String,
@@ -83,6 +146,7 @@ class UserModel {
           : null,
       pushNotificationsEnabled: json['push_notifications_enabled'] as bool,
       emailNotificationsEnabled: json['email_notifications_enabled'] as bool,
+      notificationPreferences: prefs,
       subscriptionTier: SubscriptionTier.fromJson(
         json['subscription_tier'] as String? ?? 'free',
       ),
@@ -105,6 +169,7 @@ class UserModel {
         'last_login_at': lastLoginAt?.toIso8601String(),
         'push_notifications_enabled': pushNotificationsEnabled,
         'email_notifications_enabled': emailNotificationsEnabled,
+        'notification_preferences': notificationPreferences.toJson(),
         'subscription_tier': subscriptionTier.toJson(),
         'subscription_expires_at': subscriptionExpiresAt?.toIso8601String(),
         'onboarding_completed': onboardingCompleted,
@@ -123,6 +188,7 @@ class UserModel {
     DateTime? lastLoginAt,
     bool? pushNotificationsEnabled,
     bool? emailNotificationsEnabled,
+    NotificationPreferences? notificationPreferences,
     SubscriptionTier? subscriptionTier,
     DateTime? subscriptionExpiresAt,
     bool? onboardingCompleted,
@@ -141,6 +207,8 @@ class UserModel {
           pushNotificationsEnabled ?? this.pushNotificationsEnabled,
       emailNotificationsEnabled:
           emailNotificationsEnabled ?? this.emailNotificationsEnabled,
+      notificationPreferences:
+          notificationPreferences ?? this.notificationPreferences,
       subscriptionTier: subscriptionTier ?? this.subscriptionTier,
       subscriptionExpiresAt:
           subscriptionExpiresAt ?? this.subscriptionExpiresAt,
@@ -155,12 +223,14 @@ class UserUpdateRequest {
   final String? fullName;
   final bool? pushNotificationsEnabled;
   final bool? emailNotificationsEnabled;
+  final NotificationPreferences? notificationPreferences;
   final bool? onboardingCompleted;
 
   const UserUpdateRequest({
     this.fullName,
     this.pushNotificationsEnabled,
     this.emailNotificationsEnabled,
+    this.notificationPreferences,
     this.onboardingCompleted,
   });
 
@@ -172,6 +242,9 @@ class UserUpdateRequest {
     }
     if (emailNotificationsEnabled != null) {
       data['email_notifications_enabled'] = emailNotificationsEnabled;
+    }
+    if (notificationPreferences != null) {
+      data['notification_preferences'] = notificationPreferences!.toJson();
     }
     if (onboardingCompleted != null) {
       data['onboarding_completed'] = onboardingCompleted;

@@ -30,12 +30,16 @@ class Settings(BaseSettings):
         default="postgresql+asyncpg://postgres:postgres@localhost:5432/money_guardian"
     )
     database_echo: bool = False
+    db_pool_size: int = 20
+    db_max_overflow: int = 10
+    db_pool_pre_ping: bool = True
+    db_pool_recycle: int = 3600
 
     # Redis
     redis_url: RedisDsn = Field(default="redis://localhost:6379/0")
 
-    # JWT
-    jwt_secret_key: str = Field(default="CHANGE_ME_IN_PRODUCTION")
+    # JWT - MUST be set via JWT_SECRET_KEY env var. Default is for local dev only.
+    jwt_secret_key: str = Field(default="LOCAL_DEV_ONLY__CHANGE_IN_PRODUCTION")
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 30
     jwt_refresh_token_expire_days: int = 7
@@ -90,8 +94,15 @@ class Settings(BaseSettings):
     # Admin API
     admin_api_key: str | None = None
 
-    # CORS - allow all localhost ports in development
-    cors_origins: list[str] = ["*"]
+    # CORS - restrict to known frontend origins.
+    # Override via CORS_ORIGINS env var (JSON array) in production.
+    cors_origins: list[str] = [
+        "http://localhost:3000",
+        "http://localhost:8080",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:8080",
+        "https://app.moneyguardian.app",
+    ]
 
     # Rate Limiting
     rate_limit_per_minute: int = 60

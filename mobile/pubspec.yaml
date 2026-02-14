@@ -24,6 +24,8 @@ dependency_overrides:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
 
   # UI
   cupertino_icons: ^1.0.6
@@ -50,9 +52,10 @@ dependencies:
   # Functional Programming
   dartz: ^0.10.1
 
-  # Firebase (for push notifications)
+  # Firebase (for push notifications + analytics)
   firebase_core: ^4.4.0
   firebase_messaging: ^16.1.1
+  firebase_analytics: ^12.1.2
   flutter_local_notifications: ^20.0.0
 
   # Plaid (bank connection)
@@ -60,6 +63,15 @@ dependencies:
 
   # RevenueCat (in-app purchases)
   purchases_flutter: ^9.10.7
+
+  # Security (Runtime protection, cert pinning, root detection)
+  freerasp: ^6.3.0
+
+  # Biometric Authentication
+  local_auth: ^2.1.8
+
+  # Skeleton Loading
+  skeletonizer: ^1.1.2
 
   # Utilities
   intl: ^0.20.2
@@ -109,6 +121,8 @@ flutter_launcher_icons:
 
 # The following section is specific to Flutter.
 flutter:
+
+  generate: true
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in

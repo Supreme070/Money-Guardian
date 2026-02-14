@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../presentation/blocs/alerts/alert_bloc.dart';
+import '../../presentation/blocs/alerts/alert_state.dart';
+import '../../src/theme/light_color.dart';
+import '../widgets/offline_banner.dart';
 import 'home/home_page.dart';
 import 'subscriptions/subscriptions_page.dart';
 import 'calendar/calendar_page.dart';
@@ -26,11 +31,13 @@ class _MainScreenState extends State<MainScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _pages,
+      body: OfflineBanner(
+        child: IndexedStack(
+          index: _currentIndex,
+          children: _pages,
+        ),
       ),
-      bottomNavigationBar: CustomBottomNavBar(
+      bottomNavigationBar: _CustomBottomNavBar(
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
       ),
@@ -38,56 +45,57 @@ class _MainScreenState extends State<MainScreen> {
   }
 }
 
-// --- Color System ---
-class AppColors {
-  static const Color primary = Color(0xFFCEA734); 
-  static const Color textTertiary = Color(0xFF999999);
-  static const Color freeze = Color(0xFFCF6679);
-}
-
-class CustomBottomNavBar extends StatelessWidget {
+class _CustomBottomNavBar extends StatelessWidget {
   final int currentIndex;
   final Function(int) onTap;
 
-  const CustomBottomNavBar({
-    super.key,
+  const _CustomBottomNavBar({
     required this.currentIndex,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 90,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 20,
-            offset: const Offset(0, -5),
+    return BlocBuilder<AlertBloc, AlertState>(
+      builder: (context, alertState) {
+        int unreadCount = 0;
+        if (alertState is AlertLoaded) {
+          unreadCount = alertState.unreadCount;
+        }
+
+        return Container(
+          height: 90,
+          decoration: BoxDecoration(
+            color: LightColor.slate,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.15),
+                blurRadius: 20,
+                offset: const Offset(0, -5),
+              ),
+            ],
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(28),
+              topRight: Radius.circular(28),
+            ),
           ),
-        ],
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(28),
-          topRight: Radius.circular(28),
-        ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _buildNavItem(Icons.home_filled, 'Pulse', 0),
-          _buildNavItem(Icons.assignment_outlined, 'Subs', 1),
-          _buildNavItem(Icons.calendar_today_rounded, 'Calendar', 2),
-          _buildNavItem(Icons.notifications_outlined, 'Alerts', 3, badgeCount: 3),
-        ],
-      ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildNavItem(Icons.home_filled, 'Pulse', 0),
+              _buildNavItem(Icons.assignment_outlined, 'Subs', 1),
+              _buildNavItem(Icons.calendar_today_rounded, 'Calendar', 2),
+              _buildNavItem(Icons.notifications_outlined, 'Alerts', 3, badgeCount: unreadCount),
+            ],
+          ),
+        );
+      },
     );
   }
 
   Widget _buildNavItem(IconData icon, String label, int index, {int badgeCount = 0}) {
     final isActive = currentIndex == index;
-    final color = isActive ? AppColors.primary : AppColors.textTertiary;
+    final color = isActive ? LightColor.accent : LightColor.grey;
 
     return GestureDetector(
       onTap: () => onTap(index),
@@ -108,12 +116,12 @@ class CustomBottomNavBar extends StatelessWidget {
                     child: Container(
                       padding: const EdgeInsets.all(4),
                       decoration: const BoxDecoration(
-                        color: AppColors.freeze,
+                        color: LightColor.danger,
                         shape: BoxShape.circle,
                       ),
                       child: Text(
-                        badgeCount.toString(),
-                        style: GoogleFonts.inter(
+                        badgeCount > 9 ? '9+' : badgeCount.toString(),
+                        style: GoogleFonts.mulish(
                           color: Colors.white,
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
@@ -126,7 +134,7 @@ class CustomBottomNavBar extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               label,
-              style: GoogleFonts.inter(
+              style: GoogleFonts.mulish(
                 color: color,
                 fontSize: 11,
                 fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,

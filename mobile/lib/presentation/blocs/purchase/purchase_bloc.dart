@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
 
+import '../../../core/di/injection.dart';
+import '../../../core/services/analytics_service.dart';
 import '../../../data/models/purchase_model.dart';
 import '../../../data/repositories/purchase_repository.dart';
 import 'purchase_event.dart';
@@ -129,6 +131,7 @@ class PurchaseBloc extends Bloc<PurchaseEvent, PurchaseState> {
       final result = await _purchaseRepository.purchasePackage(event.packageId);
 
       if (result.userCancelled) {
+        getIt<AnalyticsService>().logProUpgradeCancelled();
         emit(PurchaseCancelled(previousState: currentState));
         // Return to loaded state after brief delay
         await Future.delayed(const Duration(milliseconds: 500));
@@ -144,6 +147,7 @@ class PurchaseBloc extends Bloc<PurchaseEvent, PurchaseState> {
         return;
       }
 
+      getIt<AnalyticsService>().logProUpgradeCompleted(packageId: event.packageId);
       emit(PurchaseSuccess(
         customerInfo: result.customerInfo!,
         message: 'Welcome to Pro! Your subscription is now active.',
@@ -187,6 +191,7 @@ class PurchaseBloc extends Bloc<PurchaseEvent, PurchaseState> {
         message = 'No previous purchases found.';
       }
 
+      getIt<AnalyticsService>().logPurchaseRestored(restoredCount: result.restoredPurchases);
       emit(PurchaseRestoreSuccess(
         customerInfo: result.customerInfo!,
         restoredCount: result.restoredPurchases,

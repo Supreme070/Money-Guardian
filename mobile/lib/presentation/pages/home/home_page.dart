@@ -1,213 +1,470 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 
-// --- Color System (Light Theme) ---
-class AppColors {
-  static const Color background = Color(0xFFFFFFFF);
-  static const Color surface = Color(0xFFF5F5F7);
-  static const Color primary = Color(0xFFCEA734); // Sovereign Gold
-  static const Color primaryDark = Color(0xFFB8941F); // Darker Gold
-  static const Color textPrimary = Color(0xFF1A1A1A);
-  static const Color textSecondary = Color(0xFF666666);
-  static const Color textTertiary = Color(0xFF999999);
-  
-  static const Color safe = Color(0xFF00E676);
-  static const Color caution = Color(0xFFFFB74D);
-  static const Color freeze = Color(0xFFCF6679);
-  
-  static const Color divider = Color(0xFFE0E0E0);
-}
+import '../../../data/models/pulse_model.dart';
+import '../../../presentation/blocs/auth/auth_bloc.dart';
+import '../../../presentation/blocs/auth/auth_state.dart';
+import '../../../presentation/blocs/pulse/pulse_bloc.dart';
+import '../../../presentation/blocs/pulse/pulse_event.dart';
+import '../../../presentation/blocs/pulse/pulse_state.dart';
+import '../../../presentation/blocs/alerts/alert_bloc.dart';
+import '../../../presentation/blocs/alerts/alert_event.dart';
+import '../../../presentation/blocs/alerts/alert_state.dart';
+import '../../../core/di/injection.dart';
+import '../../../core/services/analytics_service.dart';
+import '../../../src/theme/light_color.dart';
 
-// --- HomePage Widget ---
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
   @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  @override
+  void initState() {
+    super.initState();
+    getIt<AnalyticsService>().logScreenView(screenName: 'DailyPulse');
+    context.read<PulseBloc>().add(const PulseLoadRequested());
+    context.read<AlertBloc>().add(const AlertLoadRequested());
+  }
+
+  @override
   Widget build(BuildContext context) {
-    // Custom Navigation Bar height for padding (handled by MainScreen, but we keep padding for scroll)
     const double bottomPadding = 100.0;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
-      body: Stack(
-        children: [
-          // Main Scrollable Content
-          SingleChildScrollView(
-            padding: const EdgeInsets.only(bottom: bottomPadding),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 60), // Status bar spacing
-                
-                // 1. Header
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Good morning,',
-                            style: GoogleFonts.inter(
-                              color: AppColors.textSecondary,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w400,
-                            ),
-                          ),
-                          Text(
-                            'Kola',
-                            style: GoogleFonts.inter(
-                              color: AppColors.textPrimary,
-                              fontSize: 28,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                      Row(
-                        children: [
-                          // Notifications Bell
-                          _buildIconButton(
-                            context,
-                            Icons.notifications_outlined, 
-                            hasBadge: true,
-                            onTap: () => Navigator.pushNamed(context, '/alerts'),
-                          ),
-                          const SizedBox(width: 12),
-                          // Profile Avatar (Tap to Settings)
-                          GestureDetector(
-                            onTap: () => Navigator.pushNamed(context, '/settings'),
-                            child: Container(
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                border: Border.all(color: AppColors.surface, width: 2),
-                              ),
-                              child: const CircleAvatar(
-                                radius: 20,
-                                backgroundImage: NetworkImage('https://i.pravatar.cc/150?img=11'), 
-                                backgroundColor: AppColors.surface,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // 2. Daily Pulse Hero Card
-                const DailyPulseHeroCard(status: 'SAFE'),
-
-                const SizedBox(height: 32),
-
-                // 3. Quick Actions Row
-                const QuickActionsRow(),
-
-                const SizedBox(height: 32),
-
-                // 4. Upcoming Charges Section
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Upcoming This Week',
-                        style: GoogleFonts.inter(
-                          color: AppColors.textPrimary,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () {
-                          // Could navigate to full list or calendar
-                          Navigator.pushNamed(context, '/subscriptions');
-                        },
-                        child: Text(
-                          'See All →',
-                          style: GoogleFonts.inter(
-                            color: AppColors.primary,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const UpcomingChargesList(),
-              ],
-            ),
+      backgroundColor: LightColor.background,
+      body: RefreshIndicator(
+        onRefresh: () async {
+          context.read<PulseBloc>().add(const PulseRefreshRequested());
+          context.read<AlertBloc>().add(const AlertLoadRequested());
+        },
+        color: LightColor.accent,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.only(bottom: bottomPadding),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 60),
+              _buildHeader(),
+              const SizedBox(height: 24),
+              _buildPulseCard(),
+              const SizedBox(height: 32),
+              const _QuickActionsRow(),
+              const SizedBox(height: 32),
+              _buildUpcomingSection(),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildIconButton(BuildContext context, IconData icon, {bool hasBadge = false, required VoidCallback onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Stack(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: AppColors.textPrimary, size: 24),
+  Widget _buildHeader() {
+    return BlocBuilder<AuthBloc, AuthState>(
+      builder: (context, authState) {
+        String greeting = _getGreeting();
+        String userName = 'Guardian';
+        String userInitials = 'MG';
+
+        if (authState is AuthAuthenticated) {
+          userName = authState.user.fullName?.split(' ').first ?? 'Guardian';
+          userInitials = _getInitials(
+            authState.user.fullName ?? authState.user.email,
+          );
+        }
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    greeting,
+                    style: GoogleFonts.mulish(
+                      color: LightColor.subTitleTextColor,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  Text(
+                    userName,
+                    style: GoogleFonts.mulish(
+                      color: LightColor.titleTextColor,
+                      fontSize: 28,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+              Row(
+                children: [
+                  _buildNotificationBell(),
+                  const SizedBox(width: 12),
+                  GestureDetector(
+                    onTap: () => Navigator.pushNamed(context, '/settings'),
+                    child: Container(
+                      height: 40,
+                      width: 40,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [LightColor.accent, LightColor.yellow2],
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Center(
+                        child: Text(
+                          userInitials,
+                          style: GoogleFonts.mulish(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-          if (hasBadge)
-            Positioned(
-              top: 2,
-              right: 2,
-              child: Container(
-                height: 10,
-                width: 10,
+        );
+      },
+    );
+  }
+
+  Widget _buildNotificationBell() {
+    return BlocBuilder<AlertBloc, AlertState>(
+      builder: (context, alertState) {
+        int unreadCount = 0;
+        if (alertState is AlertLoaded) {
+          unreadCount = alertState.unreadCount;
+        }
+
+        return GestureDetector(
+          onTap: () => Navigator.pushNamed(context, '/alerts'),
+          child: Stack(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: AppColors.freeze,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.background, width: 2),
+                  color: LightColor.lightGrey,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.notifications_outlined,
+                  color: LightColor.titleTextColor,
+                  size: 22,
                 ),
               ),
+              if (unreadCount > 0)
+                Positioned(
+                  top: 2,
+                  right: 2,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: LightColor.danger,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: LightColor.background, width: 2),
+                    ),
+                    child: Text(
+                      unreadCount > 9 ? '9+' : unreadCount.toString(),
+                      style: GoogleFonts.mulish(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPulseCard() {
+    return BlocBuilder<PulseBloc, PulseState>(
+      builder: (context, state) {
+        PulseStatus status = PulseStatus.safe;
+        double safeToSpend = 0.0;
+        String statusMessage = '';
+        UpcomingCharge? nextCharge;
+
+        if (state is PulseLoaded) {
+          status = state.pulse.status;
+          safeToSpend = state.pulse.safeToSpend;
+          statusMessage = state.pulse.statusMessage;
+          if (state.pulse.upcomingCharges.isNotEmpty) {
+            nextCharge = state.pulse.upcomingCharges.first;
+          }
+        } else if (state is PulseRefreshing) {
+          status = state.previousPulse.status;
+          safeToSpend = state.previousPulse.safeToSpend;
+          statusMessage = state.previousPulse.statusMessage;
+          if (state.previousPulse.upcomingCharges.isNotEmpty) {
+            nextCharge = state.previousPulse.upcomingCharges.first;
+          }
+        }
+
+        if (state is PulseLoading) {
+          return Skeletonizer(
+            enabled: true,
+            child: _DailyPulseHeroCard(
+              status: PulseStatus.safe,
+              safeToSpend: 1234.56,
+              nextCharge: null,
+              statusMessage: 'Loading your pulse...',
             ),
-        ],
+          );
+        }
+
+        if (state is PulseError) {
+          return Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(28),
+              color: LightColor.slate,
+            ),
+            child: Column(
+              children: [
+                const Icon(Icons.cloud_off, color: LightColor.warning, size: 40),
+                const SizedBox(height: 12),
+                Text(
+                  'Could not load pulse',
+                  style: GoogleFonts.mulish(
+                    color: LightColor.titleTextColor,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: () => context.read<PulseBloc>().add(const PulseLoadRequested()),
+                  child: Text(
+                    'Tap to retry',
+                    style: GoogleFonts.mulish(color: LightColor.accent, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return _DailyPulseHeroCard(
+          status: status,
+          safeToSpend: safeToSpend,
+          nextCharge: nextCharge,
+          statusMessage: statusMessage,
+        );
+      },
+    );
+  }
+
+  Widget _buildUpcomingSection() {
+    return BlocBuilder<PulseBloc, PulseState>(
+      builder: (context, state) {
+        List<UpcomingCharge> charges = [];
+        bool isLoading = state is PulseLoading;
+
+        if (state is PulseLoaded) {
+          charges = state.pulse.upcomingCharges;
+        } else if (state is PulseRefreshing) {
+          charges = state.previousPulse.upcomingCharges;
+        }
+
+        if (isLoading) {
+          return Skeletonizer(
+            enabled: true,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Upcoming This Week',
+                    style: GoogleFonts.mulish(
+                      color: LightColor.titleTextColor,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  ...List.generate(3, (_) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _UpcomingChargeTile(
+                      name: 'Subscription Name',
+                      amount: 14.99,
+                      daysUntil: 3,
+                      isWarning: false,
+                    ),
+                  )),
+                ],
+              ),
+            ),
+          );
+        }
+
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Upcoming This Week',
+                    style: GoogleFonts.mulish(
+                      color: LightColor.titleTextColor,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => Navigator.pushNamed(context, '/calendar'),
+                    child: Text(
+                      'See All',
+                      style: GoogleFonts.mulish(
+                        color: LightColor.accent,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (charges.isEmpty)
+              _buildEmptyUpcoming()
+            else
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                child: Column(
+                  children: charges.take(5).map((charge) {
+                    final daysUntil = charge.date.difference(DateTime.now()).inDays;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _UpcomingChargeTile(
+                        name: charge.name,
+                        amount: charge.amount,
+                        daysUntil: daysUntil < 0 ? 0 : daysUntil,
+                        isWarning: charge.isWarning,
+                        color: charge.color,
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildEmptyUpcoming() {
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Center(
+        child: Column(
+          children: [
+            Icon(
+              Icons.event_available_rounded,
+              size: 48,
+              color: LightColor.grey.withOpacity(0.5),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'No upcoming charges',
+              style: GoogleFonts.mulish(
+                color: LightColor.subTitleTextColor,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Add subscriptions to track them',
+              style: GoogleFonts.mulish(
+                fontSize: 12,
+                color: LightColor.grey,
+              ),
+            ),
+          ],
+        ),
       ),
     );
+  }
+
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good morning,';
+    if (hour < 17) return 'Good afternoon,';
+    return 'Good evening,';
+  }
+
+  String _getInitials(String name) {
+    final parts = name.split(' ');
+    if (parts.length >= 2) {
+      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    }
+    return name.substring(0, name.length >= 2 ? 2 : 1).toUpperCase();
   }
 }
 
-// --- Hero Component: Daily Pulse Card ---
-class DailyPulseHeroCard extends StatelessWidget {
-  final String status; // SAFE, CAUTION, FREEZE
+// --- Hero Component: Daily Pulse Card (BLoC-driven) ---
+class _DailyPulseHeroCard extends StatelessWidget {
+  final PulseStatus status;
+  final double safeToSpend;
+  final UpcomingCharge? nextCharge;
+  final String statusMessage;
 
-  const DailyPulseHeroCard({super.key, required this.status});
+  const _DailyPulseHeroCard({
+    required this.status,
+    required this.safeToSpend,
+    this.nextCharge,
+    required this.statusMessage,
+  });
 
   @override
   Widget build(BuildContext context) {
     Color statusColor;
     IconData statusIcon;
-    
+    String statusLabel;
+
     switch (status) {
-      case 'CAUTION':
-        statusColor = AppColors.caution;
+      case PulseStatus.caution:
+        statusColor = LightColor.caution;
         statusIcon = Icons.warning_rounded;
+        statusLabel = 'CAUTION';
         break;
-      case 'FREEZE':
-        statusColor = AppColors.freeze;
+      case PulseStatus.freeze:
+        statusColor = LightColor.danger;
         statusIcon = Icons.error_outline_rounded;
+        statusLabel = 'FREEZE';
         break;
-      default:
-        statusColor = AppColors.safe;
+      case PulseStatus.safe:
+        statusColor = LightColor.safe;
         statusIcon = Icons.check_circle_rounded;
+        statusLabel = 'SAFE';
+        break;
     }
+
+    final formattedAmount = NumberFormat.currency(symbol: '\$', decimalDigits: 2).format(safeToSpend);
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -215,27 +472,19 @@ class DailyPulseHeroCard extends StatelessWidget {
       width: double.infinity,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(28),
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [AppColors.primary, AppColors.primaryDark],
-          stops: [0.1, 1.0],
+          colors: [LightColor.sovereignGold, LightColor.yellow2],
+          stops: const [0.1, 1.0],
           transform: GradientRotation(135 * math.pi / 180),
         ),
         boxShadow: [
-          // Deep prominent shadow
           BoxShadow(
-            color: AppColors.primary.withOpacity(0.4),
+            color: LightColor.sovereignGold.withOpacity(0.4),
             blurRadius: 40,
             offset: const Offset(0, 12),
             spreadRadius: -5,
-          ),
-          // Subtle highlight on the top edge
-          BoxShadow(
-            color: Colors.white.withOpacity(0.3),
-            blurRadius: 0,
-            offset: const Offset(0, 1),
-            spreadRadius: 0,
           ),
         ],
       ),
@@ -243,7 +492,7 @@ class DailyPulseHeroCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(28),
         child: Stack(
           children: [
-            // Decorative Elements
+            // Decorative circles
             Positioned(
               top: -50,
               right: -50,
@@ -268,25 +517,6 @@ class DailyPulseHeroCard extends StatelessWidget {
                 ),
               ),
             ),
-            
-            // Top Edge Highlight (Inner Shine)
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: Container(
-                height: 1,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Colors.white.withOpacity(0.0),
-                      Colors.white.withOpacity(0.5),
-                      Colors.white.withOpacity(0.0),
-                    ],
-                  ),
-                ),
-              ),
-            ),
 
             // Content
             Padding(
@@ -301,7 +531,7 @@ class DailyPulseHeroCard extends StatelessWidget {
                     children: [
                       Text(
                         "TODAY'S STATUS",
-                        style: GoogleFonts.inter(
+                        style: GoogleFonts.mulish(
                           color: Colors.white.withOpacity(0.65),
                           fontSize: 12,
                           fontWeight: FontWeight.w800,
@@ -328,8 +558,8 @@ class DailyPulseHeroCard extends StatelessWidget {
                             Icon(statusIcon, color: Colors.white, size: 16),
                             const SizedBox(width: 8),
                             Text(
-                              status,
-                              style: GoogleFonts.inter(
+                              statusLabel,
+                              style: GoogleFonts.mulish(
                                 color: Colors.white,
                                 fontSize: 14,
                                 fontWeight: FontWeight.w900,
@@ -347,27 +577,31 @@ class DailyPulseHeroCard extends StatelessWidget {
                     children: [
                       Text(
                         'Safe to Spend',
-                        style: GoogleFonts.inter(
+                        style: GoogleFonts.mulish(
                           color: Colors.white.withOpacity(0.85),
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                       const SizedBox(height: 2),
-                      Text(
-                        '\$1,240.50',
-                        style: GoogleFonts.inter(
-                          color: Colors.white,
-                          fontSize: 52,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -1.5,
-                          shadows: [
-                            Shadow(
-                              color: Colors.black.withOpacity(0.15),
-                              offset: const Offset(0, 3),
-                              blurRadius: 6,
-                            ),
-                          ],
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          formattedAmount,
+                          style: GoogleFonts.mulish(
+                            color: Colors.white,
+                            fontSize: 48,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -1.5,
+                            shadows: [
+                              Shadow(
+                                color: Colors.black.withOpacity(0.15),
+                                offset: const Offset(0, 3),
+                                blurRadius: 6,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ],
@@ -389,12 +623,15 @@ class DailyPulseHeroCard extends StatelessWidget {
                           size: 16,
                         ),
                         const SizedBox(width: 8),
-                        Text(
-                          'Netflix charge in 3 days (-\$15.99)',
-                          style: GoogleFonts.inter(
-                            color: Colors.white.withOpacity(0.8),
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
+                        Flexible(
+                          child: Text(
+                            _buildFooterText(),
+                            style: GoogleFonts.mulish(
+                              color: Colors.white.withOpacity(0.8),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
@@ -408,11 +645,26 @@ class DailyPulseHeroCard extends StatelessWidget {
       ),
     );
   }
+
+  String _buildFooterText() {
+    if (nextCharge != null) {
+      final daysUntil = nextCharge!.date.difference(DateTime.now()).inDays;
+      final amountStr = NumberFormat.currency(symbol: '\$', decimalDigits: 2).format(nextCharge!.amount);
+      if (daysUntil <= 0) {
+        return '${nextCharge!.name} charge today (-$amountStr)';
+      } else if (daysUntil == 1) {
+        return '${nextCharge!.name} charge tomorrow (-$amountStr)';
+      }
+      return '${nextCharge!.name} charge in $daysUntil days (-$amountStr)';
+    }
+    if (statusMessage.isNotEmpty) return statusMessage;
+    return 'No upcoming charges this week';
+  }
 }
 
 // --- Quick Actions Row ---
-class QuickActionsRow extends StatelessWidget {
-  const QuickActionsRow({super.key});
+class _QuickActionsRow extends StatelessWidget {
+  const _QuickActionsRow();
 
   @override
   Widget build(BuildContext context) {
@@ -439,28 +691,21 @@ class QuickActionsRow extends StatelessWidget {
             onTap: () => Navigator.pushNamed(context, route),
             borderRadius: BorderRadius.circular(28),
             child: Container(
-              height: 56, // Fixed 56px diameter
+              height: 56,
               width: 56,
               decoration: BoxDecoration(
-                color: AppColors.surface,
+                color: LightColor.lightGrey,
                 shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.03),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
               ),
-              child: Icon(icon, color: AppColors.textPrimary, size: 24),
+              child: Icon(icon, color: LightColor.titleTextColor, size: 24),
             ),
           ),
         ),
         const SizedBox(height: 8),
         Text(
           label,
-          style: GoogleFonts.inter(
-            color: AppColors.textSecondary,
+          style: GoogleFonts.mulish(
+            color: LightColor.subTitleTextColor,
             fontSize: 12,
             fontWeight: FontWeight.w500,
           ),
@@ -470,131 +715,115 @@ class QuickActionsRow extends StatelessWidget {
   }
 }
 
-// --- Upcoming Charges List ---
-class UpcomingChargesList extends StatelessWidget {
-  const UpcomingChargesList({super.key});
+// --- Upcoming Charge Tile ---
+class _UpcomingChargeTile extends StatelessWidget {
+  final String name;
+  final double amount;
+  final int daysUntil;
+  final bool isWarning;
+  final String? color;
+
+  const _UpcomingChargeTile({
+    required this.name,
+    required this.amount,
+    required this.daysUntil,
+    required this.isWarning,
+    this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20.0),
-      child: Column(
-        children: [
-          _buildChargeTile(
-            'Netflix Premium',
-            'Subscription',
-            '15.99',
-            Icons.movie_creation_outlined,
-            Colors.redAccent,
-            1, // Days until (Tomorrow)
-          ),
-          const SizedBox(height: 12),
-          _buildChargeTile(
-            'Spotify Duo',
-            'Subscription',
-            '12.99',
-            Icons.music_note,
-            Colors.green,
-            3, // Days until (3 days)
-          ),
-          const SizedBox(height: 12),
-          _buildChargeTile(
-            'Gym Membership',
-            'Auto-Pay',
-            '45.00',
-            Icons.fitness_center,
-            Colors.blue,
-            5, // Days until (5 days)
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildChargeTile(
-    String title,
-    String category,
-    String amount,
-    IconData icon,
-    Color brandColor,
-    int daysUntil,
-  ) {
-    // Determine time badge logic
     Color timeColor;
     String timeText;
     if (daysUntil <= 1) {
-      timeColor = AppColors.freeze; // Red for Today/Tomorrow
+      timeColor = LightColor.danger;
       timeText = daysUntil == 0 ? 'Today' : 'Tomorrow';
     } else if (daysUntil <= 3) {
-      timeColor = AppColors.caution; // Orange for 2-3 days
+      timeColor = LightColor.caution;
       timeText = 'In $daysUntil days';
     } else {
-      timeColor = AppColors.safe; // Green for 4+ days
+      timeColor = LightColor.safe;
       timeText = 'In $daysUntil days';
     }
+
+    Color brandColor = LightColor.accent;
+    if (color != null && color!.startsWith('#') && color!.length >= 7) {
+      try {
+        brandColor = Color(int.parse(color!.replaceFirst('#', '0xFF')));
+      } catch (_) {
+        // Keep default
+      }
+    }
+
+    final formattedAmount = NumberFormat.currency(symbol: '\$', decimalDigits: 2).format(amount);
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12), // 12px border radius
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0A000000), // rgba(0,0,0,0.04) subtle shadow
-            blurRadius: 8,
-            offset: Offset(0, 2),
-          ),
-        ],
+        color: LightColor.slate,
+        borderRadius: BorderRadius.circular(12),
+        border: isWarning
+            ? Border.all(color: LightColor.danger.withOpacity(0.5), width: 1.5)
+            : null,
       ),
       child: Row(
         children: [
-          // Logo: 40px circle
           Container(
             height: 40,
             width: 40,
             decoration: BoxDecoration(
-              color: brandColor.withOpacity(0.1),
+              color: isWarning
+                  ? LightColor.danger.withOpacity(0.15)
+                  : brandColor.withOpacity(0.15),
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: brandColor, size: 20),
+            child: Center(
+              child: isWarning
+                  ? const Icon(Icons.warning_rounded, color: LightColor.danger, size: 20)
+                  : Text(
+                      name.isNotEmpty ? name[0].toUpperCase() : '?',
+                      style: GoogleFonts.mulish(
+                        color: brandColor,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                      ),
+                    ),
+            ),
           ),
           const SizedBox(width: 16),
-          
-          // Details
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  title,
-                  style: GoogleFonts.inter(
-                    color: AppColors.textPrimary,
+                  name,
+                  style: GoogleFonts.mulish(
+                    color: LightColor.titleTextColor,
                     fontSize: 16,
-                    fontWeight: FontWeight.w600, // Semibold
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  category,
-                  style: GoogleFonts.inter(
-                    color: AppColors.textTertiary, // #999999
+                  isWarning ? 'May cause overdraft' : 'Subscription',
+                  style: GoogleFonts.mulish(
+                    color: isWarning ? LightColor.danger : LightColor.subTitleTextColor,
                     fontSize: 13,
+                    fontWeight: isWarning ? FontWeight.w600 : FontWeight.w400,
                   ),
                 ),
               ],
             ),
           ),
-          
-          // Right Side: Amount and Time Badge
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                '-\$$amount',
-                style: GoogleFonts.inter(
-                  color: AppColors.textPrimary,
+                '-$formattedAmount',
+                style: GoogleFonts.mulish(
+                  color: isWarning ? LightColor.danger : LightColor.titleTextColor,
                   fontSize: 18,
-                  fontWeight: FontWeight.w600, // Semibold
+                  fontWeight: FontWeight.w600,
                 ),
               ),
               const SizedBox(height: 4),
@@ -611,7 +840,7 @@ class UpcomingChargesList extends StatelessWidget {
                   const SizedBox(width: 6),
                   Text(
                     timeText,
-                    style: GoogleFonts.inter(
+                    style: GoogleFonts.mulish(
                       color: timeColor,
                       fontSize: 12,
                       fontWeight: FontWeight.w500,

@@ -278,7 +278,7 @@ class GmailProvider(EmailProvider):
         data = response.json()
         return self._parse_message(data)
 
-    def _parse_message(self, data: dict) -> EmailMessage:
+    def _parse_message(self, data: dict[str, object]) -> EmailMessage:
         """Parse Gmail API message response."""
         headers = {
             h["name"].lower(): h["value"]
@@ -332,7 +332,7 @@ class GmailProvider(EmailProvider):
             return email_part, name_part if name_part else None
         return header.strip(), None
 
-    def _extract_body(self, payload: dict) -> tuple[str | None, str | None]:
+    def _extract_body(self, payload: dict[str, object]) -> tuple[str | None, str | None]:
         """Extract plain text and HTML body from message payload."""
         body_plain: str | None = None
         body_html: str | None = None
@@ -378,7 +378,7 @@ class GmailProvider(EmailProvider):
         return decoded_bytes.decode("utf-8", errors="replace")
 
     @staticmethod
-    def _has_attachments(payload: dict) -> bool:
+    def _has_attachments(payload: dict[str, object]) -> bool:
         """Check if message has attachments."""
         if payload.get("filename"):
             return True

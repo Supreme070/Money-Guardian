@@ -45,6 +45,9 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<!-- Biometric Authentication -->
+	<key>NSFaceIDUsageDescription</key>
+	<string>Money Guardian uses Face ID to protect your financial data.</string>
 	<!-- Plaid Link Configuration -->
 	<key>LSApplicationQueriesSchemes</key>
 	<array>

@@ -19,9 +19,11 @@ class EmailRepository {
       ApiConfig.emailProviders,
     );
 
-    final providers = response.data!['providers'] as List<dynamic>;
+    final List<Object?> providers =
+        (response.data!['providers'] as List<Object?>?) ?? <Object?>[];
     return providers
-        .map((p) => EmailProvider.fromJson(p as String))
+        .whereType<String>()
+        .map(EmailProvider.fromJson)
         .toList();
   }
 
@@ -146,9 +148,11 @@ class EmailRepository {
       ApiConfig.emailKnownSenders,
     );
 
-    final senders = response.data!['senders'] as List<dynamic>;
+    final List<Object?> senders =
+        (response.data!['senders'] as List<Object?>?) ?? <Object?>[];
     return senders
-        .map((s) => KnownSenderModel.fromJson(s as Map<String, dynamic>))
+        .whereType<Map<String, dynamic>>()
+        .map(KnownSenderModel.fromJson)
         .toList();
   }
 

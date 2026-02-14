@@ -37,6 +37,9 @@ class PulseResponse(BaseModel):
     safe_to_spend: float
     current_balance: float  # From connected accounts
 
+    # Bank connection
+    has_bank_connected: bool  # True if user has linked bank accounts
+
     # Upcoming charges
     upcoming_charges: list[UpcomingCharge]
     upcoming_total: float

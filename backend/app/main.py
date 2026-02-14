@@ -6,27 +6,18 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from decimal import Decimal
 
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
 
 from app.api.v1.router import api_router
 from app.core.config import settings
+from app.core.logging_config import setup_logging
+from app.core.rate_limit import limiter
 
 logger = logging.getLogger(__name__)
-
-
-# ---------------------------------------------------------------------------
-# Rate Limiter
-# ---------------------------------------------------------------------------
-limiter = Limiter(
-    key_func=get_remote_address,
-    default_limits=[f"{settings.rate_limit_per_minute}/minute"],
-    storage_uri=str(settings.redis_url),
-)
 
 
 # ---------------------------------------------------------------------------
@@ -61,7 +52,7 @@ class CustomJSONResponse(JSONResponse):
 def _validate_production_settings() -> None:
     """Raise on dangerous defaults in production."""
     if settings.environment == "production":
-        if settings.jwt_secret_key == "CHANGE_ME_IN_PRODUCTION":
+        if settings.jwt_secret_key in ("CHANGE_ME_IN_PRODUCTION", "LOCAL_DEV_ONLY__CHANGE_IN_PRODUCTION"):
             raise RuntimeError(
                 "FATAL: jwt_secret_key must be changed from default in production. "
                 "Set the JWT_SECRET_KEY environment variable."
@@ -79,10 +70,16 @@ def _validate_production_settings() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan handler."""
+    setup_logging()
     _validate_production_settings()
     logger.info("Starting %s v%s", settings.app_name, settings.app_version)
     logger.info("Environment: %s", settings.environment)
     yield
+    # Clean up Redis connection pools
+    from app.core.token_blacklist import close_blacklist_pool
+    from app.core.cache import close_cache_pool
+    await close_blacklist_pool()
+    await close_cache_pool()
     logger.info("Shutting down...")
 
 
@@ -127,11 +124,48 @@ app.add_middleware(
     max_age=600,
 )
 
+# Request logging middleware (after CORS so it logs actual requests, not preflight)
+from app.core.middleware import RequestLoggingMiddleware
+app.add_middleware(RequestLoggingMiddleware)
+
 # Include API router
 app.include_router(api_router, prefix=settings.api_v1_prefix)
 
 
 @app.get("/health")
 async def health_check() -> dict[str, str]:
-    """Health check endpoint."""
+    """Liveness probe - returns 200 if the process is alive."""
     return {"status": "healthy", "version": settings.app_version}
+
+
+@app.get("/health/ready")
+async def readiness_check() -> dict[str, str]:
+    """Readiness probe - checks DB and Redis connectivity."""
+    from fastapi import HTTPException
+
+    errors: list[str] = []
+
+    # Check database
+    try:
+        from app.db.session import engine
+        from sqlalchemy import text
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+    except Exception as e:
+        errors.append(f"database: {e}")
+
+    # Check Redis
+    try:
+        import redis.asyncio as aioredis
+        r = aioredis.from_url(str(settings.redis_url), decode_responses=True)
+        try:
+            await r.ping()
+        finally:
+            await r.aclose()
+    except Exception as e:
+        errors.append(f"redis: {e}")
+
+    if errors:
+        raise HTTPException(status_code=503, detail={"status": "unhealthy", "errors": errors})
+
+    return {"status": "ready", "version": settings.app_version}

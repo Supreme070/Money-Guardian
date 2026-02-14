@@ -64,6 +64,7 @@ class PulseResponse {
   final String statusMessage;
   final double safeToSpend;
   final double currentBalance;
+  final bool hasBankConnected;
   final List<UpcomingCharge> upcomingCharges;
   final double upcomingTotal;
   final int activeSubscriptionsCount;
@@ -77,6 +78,7 @@ class PulseResponse {
     required this.statusMessage,
     required this.safeToSpend,
     required this.currentBalance,
+    required this.hasBankConnected,
     required this.upcomingCharges,
     required this.upcomingTotal,
     required this.activeSubscriptionsCount,
@@ -92,6 +94,7 @@ class PulseResponse {
       statusMessage: json['status_message'] as String,
       safeToSpend: (json['safe_to_spend'] as num).toDouble(),
       currentBalance: (json['current_balance'] as num).toDouble(),
+      hasBankConnected: json['has_bank_connected'] as bool,
       upcomingCharges: (json['upcoming_charges'] as List<dynamic>)
           .map((e) => UpcomingCharge.fromJson(e as Map<String, dynamic>))
           .toList(),
@@ -110,6 +113,7 @@ class PulseResponse {
         'status_message': statusMessage,
         'safe_to_spend': safeToSpend,
         'current_balance': currentBalance,
+        'has_bank_connected': hasBankConnected,
         'upcoming_charges': upcomingCharges.map((e) => e.toJson()).toList(),
         'upcoming_total': upcomingTotal,
         'active_subscriptions_count': activeSubscriptionsCount,

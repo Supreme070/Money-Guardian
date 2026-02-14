@@ -79,3 +79,28 @@ class AuthPasswordResetError extends AuthState {
   @override
   List<Object?> get props => [message];
 }
+
+/// Password change successful
+class AuthPasswordChanged extends AuthState {
+  final String message;
+
+  const AuthPasswordChanged({required this.message});
+
+  @override
+  List<Object?> get props => [message];
+}
+
+/// Account deletion in progress
+class AuthDeletingAccount extends AuthState {
+  const AuthDeletingAccount();
+}
+
+/// Account deletion failed
+class AuthDeleteAccountError extends AuthState {
+  final String message;
+
+  const AuthDeleteAccountError({required this.message});
+
+  @override
+  List<Object?> get props => [message];
+}

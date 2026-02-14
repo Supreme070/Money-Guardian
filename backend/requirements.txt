@@ -40,6 +40,12 @@ aiosmtplib==3.0.1
 # Stripe
 stripe==8.4.0
 
+# Logging
+structlog==24.1.0
+
+# Serialization (fast JSON for cache)
+orjson==3.9.12
+
 # Utilities
 python-dotenv==1.0.1
 tenacity==8.2.3
@@ -48,6 +54,7 @@ tenacity==8.2.3
 pytest==7.4.4
 pytest-asyncio==0.23.4
 httpx==0.26.0
+aiosqlite==0.20.0
 
 # Development
 black==24.1.1

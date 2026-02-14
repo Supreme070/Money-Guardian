@@ -1,5 +1,7 @@
 import 'package:equatable/equatable.dart';
 
+import '../../../data/models/user_model.dart';
+
 /// Authentication events
 sealed class AuthEvent extends Equatable {
   const AuthEvent();
@@ -53,12 +55,14 @@ class AuthUpdateProfileRequested extends AuthEvent {
   final String? fullName;
   final bool? pushNotificationsEnabled;
   final bool? emailNotificationsEnabled;
+  final NotificationPreferences? notificationPreferences;
   final bool? onboardingCompleted;
 
   const AuthUpdateProfileRequested({
     this.fullName,
     this.pushNotificationsEnabled,
     this.emailNotificationsEnabled,
+    this.notificationPreferences,
     this.onboardingCompleted,
   });
 
@@ -67,6 +71,7 @@ class AuthUpdateProfileRequested extends AuthEvent {
         fullName,
         pushNotificationsEnabled,
         emailNotificationsEnabled,
+        notificationPreferences,
         onboardingCompleted,
       ];
 }
@@ -103,4 +108,23 @@ class AuthPasswordResetConfirmed extends AuthEvent {
 /// Clear password reset state (e.g., when navigating away)
 class AuthPasswordResetStateCleared extends AuthEvent {
   const AuthPasswordResetStateCleared();
+}
+
+/// Change password for authenticated user
+class AuthChangePasswordRequested extends AuthEvent {
+  final String currentPassword;
+  final String newPassword;
+
+  const AuthChangePasswordRequested({
+    required this.currentPassword,
+    required this.newPassword,
+  });
+
+  @override
+  List<Object?> get props => [currentPassword, newPassword];
+}
+
+/// Delete user account permanently
+class AuthDeleteAccountRequested extends AuthEvent {
+  const AuthDeleteAccountRequested();
 }

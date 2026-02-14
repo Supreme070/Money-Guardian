@@ -37,6 +37,12 @@ class RefreshRequest(BaseModel):
     refresh_token: str = Field(..., min_length=1)
 
 
+class LogoutRequest(BaseModel):
+    """Logout request - client sends refresh token so it can be revoked."""
+
+    refresh_token: str | None = Field(default=None, min_length=1)
+
+
 class TokenResponse(BaseModel):
     """Token response with access and refresh tokens."""
 
@@ -56,6 +62,25 @@ class PasswordResetConfirm(BaseModel):
     """Password reset confirmation."""
 
     token: str = Field(..., min_length=1)
+    new_password: str = Field(..., min_length=8, max_length=128)
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_password(cls, v: str) -> str:
+        """Validate password strength."""
+        if not re.search(r"[A-Z]", v):
+            raise ValueError("Password must contain at least one uppercase letter")
+        if not re.search(r"[a-z]", v):
+            raise ValueError("Password must contain at least one lowercase letter")
+        if not re.search(r"[0-9]", v):
+            raise ValueError("Password must contain at least one number")
+        return v
+
+
+class ChangePasswordRequest(BaseModel):
+    """Authenticated change password request."""
+
+    current_password: str = Field(..., min_length=1, max_length=128)
     new_password: str = Field(..., min_length=8, max_length=128)
 
     @field_validator("new_password")

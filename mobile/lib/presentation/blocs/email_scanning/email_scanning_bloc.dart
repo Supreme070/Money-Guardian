@@ -1,6 +1,8 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
 
+import '../../../core/di/injection.dart';
+import '../../../core/services/analytics_service.dart';
 import '../../../data/repositories/email_repository.dart';
 import 'email_scanning_event.dart';
 import 'email_scanning_state.dart';
@@ -104,6 +106,7 @@ class EmailScanningBloc extends Bloc<EmailScanningEvent, EmailScanningState> {
         state: event.state,
       );
 
+      getIt<AnalyticsService>().logEmailConnected(provider: event.provider.name);
       emit(EmailConnectionSuccess(connection: connection));
 
       // Reload connections to update list
@@ -134,6 +137,7 @@ class EmailScanningBloc extends Bloc<EmailScanningEvent, EmailScanningState> {
         maxEmails: event.maxEmails,
       );
 
+      getIt<AnalyticsService>().logEmailScanCompleted(subscriptionsFound: result.subscriptionsDetected);
       emit(EmailScanComplete(
         emailsScanned: result.emailsScanned,
         subscriptionsDetected: result.subscriptionsDetected,

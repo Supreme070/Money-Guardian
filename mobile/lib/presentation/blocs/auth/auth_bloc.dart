@@ -1,6 +1,8 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
 
+import '../../../core/di/injection.dart';
+import '../../../core/services/analytics_service.dart';
 import '../../../data/models/auth_models.dart';
 import '../../../data/models/user_model.dart';
 import '../../../data/repositories/auth_repository.dart';
@@ -22,6 +24,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<AuthPasswordResetRequested>(_onPasswordResetRequested);
     on<AuthPasswordResetConfirmed>(_onPasswordResetConfirmed);
     on<AuthPasswordResetStateCleared>(_onPasswordResetStateCleared);
+    on<AuthChangePasswordRequested>(_onChangePasswordRequested);
+    on<AuthDeleteAccountRequested>(_onDeleteAccountRequested);
   }
 
   Future<void> _onCheckRequested(
@@ -54,6 +58,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         LoginRequest(email: event.email, password: event.password),
       );
       final user = await _authRepository.getCurrentUser();
+      getIt<AnalyticsService>().logLogin(method: 'email');
       emit(AuthAuthenticated(user: user));
     } catch (e) {
       emit(AuthError(message: e.toString()));
@@ -75,6 +80,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         ),
       );
       final user = await _authRepository.getCurrentUser();
+      getIt<AnalyticsService>().logSignUp(method: 'email');
       emit(AuthAuthenticated(user: user));
     } catch (e) {
       emit(AuthError(message: e.toString()));
@@ -89,10 +95,14 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
     try {
       await _authRepository.logout();
+      getIt<AnalyticsService>().logLogout();
+      getIt<AnalyticsService>().setUserId(null);
       emit(const AuthUnauthenticated());
     } catch (e) {
       // Even if logout fails on server, clear local data
       await _authRepository.clearAuthData();
+      getIt<AnalyticsService>().logLogout();
+      getIt<AnalyticsService>().setUserId(null);
       emit(const AuthUnauthenticated());
     }
   }
@@ -110,6 +120,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           fullName: event.fullName,
           pushNotificationsEnabled: event.pushNotificationsEnabled,
           emailNotificationsEnabled: event.emailNotificationsEnabled,
+          notificationPreferences: event.notificationPreferences,
           onboardingCompleted: event.onboardingCompleted,
         ),
       );
@@ -132,6 +143,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       final updatedUser = await _authRepository.updateUser(
         const UserUpdateRequest(onboardingCompleted: true),
       );
+      getIt<AnalyticsService>().logOnboardingCompleted();
       emit(AuthAuthenticated(user: updatedUser));
     } catch (e) {
       // On failure, emit with locally updated user to allow navigation
@@ -182,5 +194,46 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     Emitter<AuthState> emit,
   ) {
     emit(const AuthUnauthenticated());
+  }
+
+  Future<void> _onChangePasswordRequested(
+    AuthChangePasswordRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    final currentState = state;
+    if (currentState is! AuthAuthenticated) return;
+
+    emit(const AuthLoading());
+
+    try {
+      final response = await _authRepository.changePassword(
+        ChangePasswordRequest(
+          currentPassword: event.currentPassword,
+          newPassword: event.newPassword,
+        ),
+      );
+      emit(AuthPasswordChanged(message: response.message));
+      // Restore authenticated state so the UI doesn't break
+      emit(currentState);
+    } catch (e) {
+      emit(AuthError(message: e.toString()));
+      emit(currentState);
+    }
+  }
+
+  Future<void> _onDeleteAccountRequested(
+    AuthDeleteAccountRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(const AuthDeletingAccount());
+
+    try {
+      await _authRepository.deleteAccount();
+      getIt<AnalyticsService>().logAccountDeleted();
+      getIt<AnalyticsService>().setUserId(null);
+      emit(const AuthUnauthenticated());
+    } catch (e) {
+      emit(AuthDeleteAccountError(message: e.toString()));
+    }
   }
 }

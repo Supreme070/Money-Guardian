@@ -379,7 +379,7 @@ class TinkProvider(BankingProvider):
             "financialInstitutionName": "Unknown Bank",
         }
 
-    def _parse_transaction(self, tx: dict) -> TransactionInfo:
+    def _parse_transaction(self, tx: dict[str, object]) -> TransactionInfo:
         """Parse Tink transaction into TransactionInfo."""
         amount_data = tx.get("amount", {})
         amount_value = float(amount_data.get("value", {}).get("unscaledValue", 0))
@@ -434,7 +434,7 @@ class TinkProvider(BankingProvider):
         return mapping.get(tink_type.upper(), "other")
 
     @staticmethod
-    def _parse_amount(balance_data: dict) -> Decimal | None:
+    def _parse_amount(balance_data: dict[str, object]) -> Decimal | None:
         """Parse Tink balance amount."""
         amount = balance_data.get("amount", {})
         value = amount.get("value", {})

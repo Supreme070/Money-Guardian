@@ -2,9 +2,11 @@
 
 from uuid import UUID
 
+import orjson
 from fastapi import APIRouter, HTTPException, status
 
 from app.api.deps import CurrentUserDep, DbSessionDep
+from app.core.cache import cache_delete, cache_get, cache_set
 from app.schemas.subscription import (
     SubscriptionCreate,
     SubscriptionListResponse,
@@ -21,6 +23,15 @@ from app.services.tier_service import TierService
 from app.services.ai_flag_service import AIFlagService, get_flag_summary
 
 router = APIRouter()
+
+# Cache TTLs in seconds
+_SUBS_CACHE_TTL = 600  # 10 minutes
+
+
+async def _invalidate_sub_caches(tenant_id: UUID, user_id: UUID) -> None:
+    """Invalidate subscription list and pulse caches after any mutation."""
+    await cache_delete(f"subs:{tenant_id}:{user_id}")
+    await cache_delete(f"pulse:{tenant_id}:{user_id}")
 
 
 @router.post(
@@ -65,6 +76,8 @@ async def create_subscription(
         request=request,
     )
 
+    await _invalidate_sub_caches(current_user.tenant_id, current_user.user_id)
+
     return SubscriptionResponse.model_validate(subscription)
 
 
@@ -73,19 +86,38 @@ async def list_subscriptions(
     current_user: CurrentUserDep,
     db: DbSessionDep,
     include_inactive: bool = False,
+    include_deleted: bool = False,
 ) -> SubscriptionListResponse:
     """
     List all subscriptions for current user.
 
     Returns subscriptions with monthly/yearly totals.
+
+    Args:
+        include_inactive: Include cancelled/inactive subscriptions.
+        include_deleted: Include soft-deleted subscriptions (for history view).
     """
+    # Only cache the default (active-only, non-deleted) list
+    cache_key = f"subs:{current_user.tenant_id}:{current_user.user_id}"
+    is_default_query = not include_inactive and not include_deleted
+    if is_default_query:
+        cached = await cache_get(cache_key)
+        if cached is not None:
+            return SubscriptionListResponse.model_validate(orjson.loads(cached))
+
     service = SubscriptionService(db)
 
-    return await service.list(
+    result = await service.list(
         tenant_id=current_user.tenant_id,
         user_id=current_user.user_id,
         include_inactive=include_inactive,
+        include_deleted=include_deleted,
     )
+
+    if is_default_query:
+        await cache_set(cache_key, result.model_dump(mode="json"), _SUBS_CACHE_TTL)
+
+    return result
 
 
 @router.get("/{subscription_id}", response_model=SubscriptionResponse)
@@ -141,6 +173,8 @@ async def update_subscription(
             detail=str(e),
         )
 
+    await _invalidate_sub_caches(current_user.tenant_id, current_user.user_id)
+
     return SubscriptionResponse.model_validate(subscription)
 
 
@@ -168,6 +202,8 @@ async def delete_subscription(
             detail=str(e),
         )
 
+    await _invalidate_sub_caches(current_user.tenant_id, current_user.user_id)
+
 
 @router.post("/analyze", response_model=AnalyzeResponse)
 async def analyze_subscriptions(
@@ -192,6 +228,8 @@ async def analyze_subscriptions(
         tenant_id=current_user.tenant_id,
         user_id=current_user.user_id,
     )
+
+    await _invalidate_sub_caches(current_user.tenant_id, current_user.user_id)
 
     message = (
         f"Analysis complete. Found {flagged_count} subscription{'s' if flagged_count != 1 else ''} "

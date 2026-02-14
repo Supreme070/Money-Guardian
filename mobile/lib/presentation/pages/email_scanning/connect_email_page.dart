@@ -7,18 +7,9 @@ import '../../../data/models/email_connection_model.dart';
 import '../../../presentation/blocs/email_scanning/email_scanning_bloc.dart';
 import '../../../presentation/blocs/email_scanning/email_scanning_event.dart';
 import '../../../presentation/blocs/email_scanning/email_scanning_state.dart';
-
-// --- Color System (Consistent) ---
-class AppColors {
-  static const Color background = Color(0xFFFFFFFF);
-  static const Color surface = Color(0xFFF5F5F7);
-  static const Color primary = Color(0xFFCEA734); 
-  static const Color textPrimary = Color(0xFF1A1A1A);
-  static const Color textSecondary = Color(0xFF666666);
-  static const Color textTertiary = Color(0xFF999999);
-  static const Color safe = Color(0xFF00E676);
-  static const Color freeze = Color(0xFFCF6679);
-}
+import '../../../core/di/injection.dart';
+import '../../../core/services/analytics_service.dart';
+import '../../../src/theme/light_color.dart';
 
 class ConnectEmailPage extends StatefulWidget {
   const ConnectEmailPage({super.key});
@@ -33,6 +24,7 @@ class _ConnectEmailPageState extends State<ConnectEmailPage> {
   @override
   void initState() {
     super.initState();
+    getIt<AnalyticsService>().logScreenView(screenName: 'ConnectEmail');
     context.read<EmailScanningBloc>().add(const EmailLoadRequested());
   }
 
@@ -46,15 +38,15 @@ class _ConnectEmailPageState extends State<ConnectEmailPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: LightColor.background,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: LightColor.background,
         elevation: 0,
         centerTitle: false,
         title: Text(
           'Email Link',
-          style: GoogleFonts.inter(
-            color: AppColors.textPrimary,
+          style: GoogleFonts.mulish(
+            color: LightColor.textPrimary,
             fontSize: 24,
             fontWeight: FontWeight.w700,
             letterSpacing: -0.5,
@@ -67,13 +59,14 @@ class _ConnectEmailPageState extends State<ConnectEmailPage> {
             launchUrl(Uri.parse(state.oauthUrl.authorizationUrl), mode: LaunchMode.externalApplication);
           } else if (state is EmailConnectionSuccess) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Email connected successfully!'), backgroundColor: AppColors.safe),
+              const SnackBar(content: Text('Email connected successfully!'), backgroundColor: LightColor.safe),
             );
+            Navigator.pop(context, true);
           }
         },
         builder: (context, state) {
           if (state is EmailScanningLoading) {
-            return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+            return const Center(child: CircularProgressIndicator(color: LightColor.primary));
           }
 
           if (state is EmailScanningProRequired) {
@@ -104,13 +97,13 @@ class _ConnectEmailPageState extends State<ConnectEmailPage> {
           const SizedBox(height: 32),
 
           if (state.hasConnections) ...[
-            Text('Connected Accounts', style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w600)),
+            Text('Connected Accounts', style: GoogleFonts.mulish(fontSize: 18, fontWeight: FontWeight.w600)),
             const SizedBox(height: 16),
             ...state.connections.map((conn) => _buildConnectionCard(conn)),
             const SizedBox(height: 32),
           ],
 
-          Text('Link New Email', style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w600)),
+          Text('Link New Email', style: GoogleFonts.mulish(fontSize: 18, fontWeight: FontWeight.w600)),
           const SizedBox(height: 16),
           _buildProviderSelection(),
           const SizedBox(height: 40),
@@ -123,7 +116,7 @@ class _ConnectEmailPageState extends State<ConnectEmailPage> {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: AppColors.textPrimary,
+        color: LightColor.textPrimary,
         borderRadius: BorderRadius.circular(24),
       ),
       child: Column(
@@ -131,18 +124,18 @@ class _ConnectEmailPageState extends State<ConnectEmailPage> {
         children: [
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.2), shape: BoxShape.circle),
-            child: const Icon(Icons.alternate_email, color: AppColors.primary, size: 28),
+            decoration: BoxDecoration(color: LightColor.primary.withOpacity(0.2), shape: BoxShape.circle),
+            child: const Icon(Icons.alternate_email, color: LightColor.primary, size: 28),
           ),
           const SizedBox(height: 20),
           Text(
             'The Deep Scan',
-            style: GoogleFonts.inter(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+            style: GoogleFonts.mulish(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 8),
           Text(
             'Connect your email to find subscription receipts and confirmations that your bank might miss.',
-            style: GoogleFonts.inter(color: Colors.white.withOpacity(0.6), fontSize: 14, height: 1.5),
+            style: GoogleFonts.mulish(color: Colors.white.withOpacity(0.6), fontSize: 14, height: 1.5),
           ),
         ],
       ),
@@ -156,7 +149,7 @@ class _ConnectEmailPageState extends State<ConnectEmailPage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppColors.surface),
+        border: Border.all(color: LightColor.surface),
         boxShadow: [
           BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
         ],
@@ -166,21 +159,21 @@ class _ConnectEmailPageState extends State<ConnectEmailPage> {
           Container(
             height: 48,
             width: 48,
-            decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(12)),
-            child: const Icon(Icons.mail_outline, color: AppColors.textPrimary),
+            decoration: BoxDecoration(color: LightColor.surface, borderRadius: BorderRadius.circular(12)),
+            child: const Icon(Icons.mail_outline, color: LightColor.textPrimary),
           ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(connection.emailAddress, style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 15)),
+                Text(connection.emailAddress, style: GoogleFonts.mulish(fontWeight: FontWeight.w600, fontSize: 15)),
                 const SizedBox(height: 4),
-                Text('Last scanned 2h ago', style: GoogleFonts.inter(color: AppColors.textTertiary, fontSize: 12)),
+                Text('Last scanned 2h ago', style: GoogleFonts.mulish(color: LightColor.textTertiary, fontSize: 12)),
               ],
             ),
           ),
-          const Icon(Icons.check_circle, color: AppColors.safe, size: 20),
+          const Icon(Icons.check_circle, color: LightColor.safe, size: 20),
         ],
       ),
     );
@@ -193,7 +186,7 @@ class _ConnectEmailPageState extends State<ConnectEmailPage> {
         const SizedBox(height: 12),
         _buildProviderTile('Outlook', 'Microsoft Account', Icons.email, const Color(0xFF0078D4), EmailProvider.outlook),
         const SizedBox(height: 12),
-        _buildProviderTile('iCloud Mail', 'Apple Account', Icons.alternate_email, AppColors.textTertiary, EmailProvider.outlook, isDisabled: true),
+        _buildProviderTile('iCloud Mail', 'Apple Account', Icons.alternate_email, LightColor.textTertiary, EmailProvider.outlook, isDisabled: true),
       ],
     );
   }
@@ -207,7 +200,7 @@ class _ConnectEmailPageState extends State<ConnectEmailPage> {
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: AppColors.surface,
+            color: LightColor.surface,
             borderRadius: BorderRadius.circular(20),
           ),
           child: Row(
@@ -223,13 +216,13 @@ class _ConnectEmailPageState extends State<ConnectEmailPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title, style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 15)),
+                    Text(title, style: GoogleFonts.mulish(fontWeight: FontWeight.w600, fontSize: 15)),
                     const SizedBox(height: 2),
-                    Text(isDisabled ? 'Coming Soon' : subtitle, style: GoogleFonts.inter(color: AppColors.textTertiary, fontSize: 12)),
+                    Text(isDisabled ? 'Coming Soon' : subtitle, style: GoogleFonts.mulish(color: LightColor.textTertiary, fontSize: 12)),
                   ],
                 ),
               ),
-              if (!isDisabled) const Icon(Icons.add_link, color: AppColors.primary),
+              if (!isDisabled) const Icon(Icons.add_link, color: LightColor.primary),
             ],
           ),
         ),
@@ -245,19 +238,19 @@ class _ConnectEmailPageState extends State<ConnectEmailPage> {
         children: [
           Container(
             padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), shape: BoxShape.circle),
-            child: const Icon(Icons.stars_outlined, size: 48, color: AppColors.primary),
+            decoration: BoxDecoration(color: LightColor.primary.withOpacity(0.1), shape: BoxShape.circle),
+            child: const Icon(Icons.stars_outlined, size: 48, color: LightColor.primary),
           ),
           const SizedBox(height: 32),
           Text(
             'Unlock Deep Scan',
-            style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w700, letterSpacing: -1),
+            style: GoogleFonts.mulish(fontSize: 24, fontWeight: FontWeight.w700, letterSpacing: -1),
           ),
           const SizedBox(height: 12),
           Text(
             'Email scanning is a Pro feature that finds hidden subscriptions in your inbox automatically.',
             textAlign: TextAlign.center,
-            style: GoogleFonts.inter(color: AppColors.textSecondary, height: 1.5),
+            style: GoogleFonts.mulish(color: LightColor.textSecondary, height: 1.5),
           ),
           const SizedBox(height: 40),
           SizedBox(
@@ -266,11 +259,11 @@ class _ConnectEmailPageState extends State<ConnectEmailPage> {
             child: ElevatedButton(
               onPressed: () => Navigator.pushNamed(context, '/pro-upgrade'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.textPrimary,
+                backgroundColor: LightColor.textPrimary,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               ),
-              child: Text('Upgrade to Pro', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+              child: Text('Upgrade to Pro', style: GoogleFonts.mulish(fontWeight: FontWeight.w600)),
             ),
           ),
         ],

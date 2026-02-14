@@ -8,8 +8,13 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'core/di/injection.dart';
+import 'core/error/error_handler.dart';
+import 'core/network/connectivity_service.dart';
+import 'core/security/app_security.dart';
+import 'core/services/analytics_service.dart';
 import 'core/services/deep_link_service.dart';
 import 'core/services/notification_service.dart';
+import 'core/storage/biometric_service.dart';
 import 'data/repositories/auth_repository.dart';
 import 'data/models/email_connection_model.dart';
 import 'presentation/blocs/auth/auth_bloc.dart';
@@ -21,10 +26,10 @@ import 'presentation/blocs/alerts/alert_bloc.dart';
 import 'presentation/blocs/banking/banking_bloc.dart';
 import 'presentation/blocs/email_scanning/email_scanning_bloc.dart';
 import 'presentation/blocs/email_scanning/email_scanning_event.dart';
+import 'src/theme/app_theme_provider.dart';
 import 'src/theme/theme.dart';
 import 'presentation/pages/main_screen.dart';
 import 'presentation/pages/auth/login_page.dart';
-import 'presentation/pages/home/home_page.dart';
 import 'presentation/pages/onboarding/onboarding_page.dart';
 import 'presentation/pages/subscriptions/subscriptions_page.dart';
 import 'presentation/pages/alerts/alerts_page.dart';
@@ -45,17 +50,23 @@ import 'src/pages/help_center_page.dart';
 import 'src/pages/contact_support_page.dart';
 import 'src/pages/privacy_policy_page.dart';
 import 'src/pages/terms_of_service_page.dart';
+import 'l10n/generated/app_localizations.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Firebase
-  await Firebase.initializeApp();
-
-  // Set up background message handler
-  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  // Initialize Firebase (non-fatal if not configured)
+  try {
+    await Firebase.initializeApp();
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  } catch (e) {
+    debugPrint('Firebase not available: $e');
+  }
 
   await configureDependencies();
+
+  // Initialize runtime security (freeRASP)
+  await AppSecurity.initialize();
 
   // Initialize deep link service
   final deepLinkService = getIt<DeepLinkService>();
@@ -65,37 +76,80 @@ void main() async {
   final notificationService = getIt<NotificationService>();
   await notificationService.initialize();
 
-  runApp(MoneyGuardianApp(
-    deepLinkService: deepLinkService,
-    notificationService: notificationService,
-  ));
+  // Initialize connectivity monitoring
+  final connectivityService = getIt<ConnectivityService>();
+  await connectivityService.initialize();
+
+  // Initialize theme provider and register in DI
+  final themeProvider = AppThemeProvider();
+  await themeProvider.initialize();
+  getIt.registerSingleton<AppThemeProvider>(themeProvider);
+
+  // Initialize global error handler
+  final errorHandler = ErrorHandler();
+  errorHandler.initialize();
+
+  errorHandler.runGuarded(() {
+    runApp(MoneyGuardianApp(
+      deepLinkService: deepLinkService,
+      notificationService: notificationService,
+      themeProvider: themeProvider,
+    ));
+  });
 }
 
 class MoneyGuardianApp extends StatefulWidget {
   final DeepLinkService deepLinkService;
   final NotificationService notificationService;
+  final AppThemeProvider themeProvider;
 
   const MoneyGuardianApp({
     Key? key,
     required this.deepLinkService,
     required this.notificationService,
+    required this.themeProvider,
   }) : super(key: key);
 
   @override
   State<MoneyGuardianApp> createState() => _MoneyGuardianAppState();
 }
 
-class _MoneyGuardianAppState extends State<MoneyGuardianApp> {
+class _MoneyGuardianAppState extends State<MoneyGuardianApp>
+    with WidgetsBindingObserver {
   StreamSubscription<OAuthCallbackData>? _oauthSubscription;
   StreamSubscription<NotificationPayload>? _notificationSubscription;
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   bool _fcmTokenRegistered = false;
+  bool _isCheckingBiometric = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _setupOAuthListener();
     _setupNotificationListener();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && !_isCheckingBiometric) {
+      _checkBiometricOnResume();
+    }
+  }
+
+  Future<void> _checkBiometricOnResume() async {
+    final biometricService = getIt<BiometricService>();
+    final enabled = await biometricService.isBiometricEnabled();
+    if (!enabled) return;
+
+    _isCheckingBiometric = true;
+    final authenticated = await biometricService.authenticate();
+    _isCheckingBiometric = false;
+
+    if (!authenticated && mounted) {
+      // User failed biometric - optionally show a locked screen or exit
+      // For now, we re-prompt on next resume
+    }
   }
 
   void _setupOAuthListener() {
@@ -215,6 +269,7 @@ class _MoneyGuardianAppState extends State<MoneyGuardianApp> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _oauthSubscription?.cancel();
     _notificationSubscription?.cancel();
     super.dispose();
@@ -243,20 +298,40 @@ class _MoneyGuardianAppState extends State<MoneyGuardianApp> {
           create: (_) => getIt<EmailScanningBloc>(),
         ),
       ],
-      child: MaterialApp(
+      child: ListenableBuilder(
+        listenable: widget.themeProvider,
+        builder: (context, _) => MaterialApp(
         navigatorKey: _navigatorKey,
         title: 'Money Guardian',
         debugShowCheckedModeBanner: false,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        navigatorObservers: [
+          getIt<AnalyticsService>().observer,
+        ],
         theme: AppTheme.lightTheme.copyWith(
           textTheme: GoogleFonts.mulishTextTheme(
             Theme.of(context).textTheme,
           ),
         ),
+        darkTheme: AppTheme.darkTheme.copyWith(
+          textTheme: GoogleFonts.mulishTextTheme(
+            ThemeData.dark().textTheme,
+          ),
+        ),
+        themeMode: widget.themeProvider.themeMode,
         home: BlocConsumer<AuthBloc, AuthState>(
           listener: (context, state) {
             if (state is AuthAuthenticated) {
               // Register FCM token when authenticated
               _registerFcmToken();
+              // Set analytics user ID
+              final analyticsService = getIt<AnalyticsService>();
+              analyticsService.setUserId(state.user.id);
+              analyticsService.setUserProperty(
+                name: 'tier',
+                value: state.user.subscriptionTier.name,
+              );
             }
           },
           builder: (context, state) {
@@ -265,7 +340,7 @@ class _MoneyGuardianAppState extends State<MoneyGuardianApp> {
               if (state.user.isNewUser) {
                 return const OnboardingPage();
               }
-              return const HomePage();
+              return const MainScreen();
             }
             return const LoginPage();
           },
@@ -292,28 +367,33 @@ class _MoneyGuardianAppState extends State<MoneyGuardianApp> {
           '/privacy': (_) => const PrivacyPolicyPage(),
           '/terms': (_) => const TermsOfServicePage(),
         },
-        onGenerateRoute: (settings) {
+        onGenerateRoute: (RouteSettings settings) {
           // Handle routes that need arguments
           if (settings.name == '/recurring-transactions') {
-            final args = settings.arguments as Map<String, dynamic>?;
-            return MaterialPageRoute(
+            final Map<String, Object?> args =
+                (settings.arguments as Map<String, Object?>?) ??
+                    <String, Object?>{};
+            return MaterialPageRoute<void>(
               builder: (_) => RecurringTransactionsPage(
-                connectionId: args?['connectionId'] ?? '',
-                bankName: args?['bankName'] ?? 'Bank',
+                connectionId: (args['connectionId'] as String?) ?? '',
+                bankName: (args['bankName'] as String?) ?? 'Bank',
               ),
             );
           }
           if (settings.name == '/scanned-emails') {
-            final args = settings.arguments as Map<String, dynamic>?;
-            return MaterialPageRoute(
+            final Map<String, Object?> args =
+                (settings.arguments as Map<String, Object?>?) ??
+                    <String, Object?>{};
+            return MaterialPageRoute<void>(
               builder: (_) => ScannedEmailsPage(
-                connectionId: args?['connectionId'] ?? '',
-                emailAddress: args?['emailAddress'] ?? '',
+                connectionId: (args['connectionId'] as String?) ?? '',
+                emailAddress: (args['emailAddress'] as String?) ?? '',
               ),
             );
           }
           return null;
         },
+      ),
       ),
     );
   }

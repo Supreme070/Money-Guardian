@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 from uuid import UUID
 
 from sqlalchemy import ForeignKey, String, Boolean
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TenantMixin, TimestampMixin
@@ -58,6 +58,14 @@ class User(Base, TenantMixin, TimestampMixin):
     # Notification preferences
     push_notifications_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     email_notifications_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    # Granular notification type preferences (JSONB)
+    notification_preferences: Mapped[dict[str, bool]] = mapped_column(
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default="{}",
+    )
 
     # Subscription tier (free, pro, premium)
     subscription_tier: Mapped[str] = mapped_column(

@@ -57,7 +57,8 @@ class SubscriptionService:
             color=request.color,
             icon=request.icon,
             logo_url=request.logo_url,
-            source="manual",
+            source=request.source,
+            bank_transaction_pattern=request.bank_transaction_pattern,
             ai_flag="none",
         )
 
@@ -98,17 +99,24 @@ class SubscriptionService:
         tenant_id: UUID,
         user_id: UUID,
         include_inactive: bool = False,
+        include_deleted: bool = False,
     ) -> SubscriptionListResponse:
         """
         List all subscriptions for a user.
 
         CRITICAL: Always filters by tenant_id.
+
+        Args:
+            include_inactive: If True, includes cancelled/inactive subscriptions.
+            include_deleted: If True, includes soft-deleted subscriptions (for history).
         """
         query = select(Subscription).where(
             Subscription.tenant_id == tenant_id,
             Subscription.user_id == user_id,
-            Subscription.deleted_at.is_(None),
         )
+
+        if not include_deleted:
+            query = query.where(Subscription.deleted_at.is_(None))
 
         if not include_inactive:
             query = query.where(Subscription.is_active == True)

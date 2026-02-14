@@ -7,6 +7,8 @@ import '../../data/models/purchase_model.dart';
 import '../../presentation/blocs/purchase/purchase_bloc.dart';
 import '../../presentation/blocs/purchase/purchase_event.dart';
 import '../../presentation/blocs/purchase/purchase_state.dart';
+import '../../core/di/injection.dart';
+import '../../core/services/analytics_service.dart';
 import '../theme/light_color.dart';
 
 /// Pro subscription upgrade page with pricing tiers
@@ -33,6 +35,13 @@ class _ProUpgradeView extends StatefulWidget {
 
 class _ProUpgradeViewState extends State<_ProUpgradeView> {
   int _selectedPlanIndex = 1; // Default to yearly (best value)
+
+  @override
+  void initState() {
+    super.initState();
+    getIt<AnalyticsService>().logScreenView(screenName: 'ProUpgrade');
+    getIt<AnalyticsService>().logProUpgradeStarted(source: 'navigation');
+  }
 
   // Fallback plans when RevenueCat offerings not available
   static const List<_PlanOption> _fallbackPlans = [

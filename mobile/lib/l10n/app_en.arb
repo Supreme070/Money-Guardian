@@ -1,0 +1,432 @@
+{
+  "@@locale": "en",
+
+  "appName": "Money Guardian",
+  "@appName": { "description": "Application name" },
+
+  "navHome": "Home",
+  "@navHome": { "description": "Bottom navigation label for Home/Pulse" },
+
+  "navSubs": "Subs",
+  "@navSubs": { "description": "Bottom navigation label for Subscriptions" },
+
+  "navCalendar": "Calendar",
+  "@navCalendar": { "description": "Bottom navigation label for Calendar" },
+
+  "navAlerts": "Alerts",
+  "@navAlerts": { "description": "Bottom navigation label for Alerts" },
+
+  "pageTitleSubscriptions": "Subscriptions",
+  "@pageTitleSubscriptions": { "description": "Subscriptions page title" },
+
+  "pageTitleForecast": "Forecast",
+  "@pageTitleForecast": { "description": "Calendar/Forecast page title" },
+
+  "pageTitleAlerts": "Alerts",
+  "@pageTitleAlerts": { "description": "Alerts page title" },
+
+  "pageTitleSettings": "Settings",
+  "@pageTitleSettings": { "description": "Settings page title" },
+
+  "pageTitleBankLink": "Bank Link",
+  "@pageTitleBankLink": { "description": "Bank connection page title" },
+
+  "pageTitleAppearance": "Appearance",
+  "@pageTitleAppearance": { "description": "Appearance settings page title" },
+
+  "pageTitleDetail": "Detail",
+  "@pageTitleDetail": { "description": "Subscription detail page title" },
+
+  "pulseStatusSafe": "SAFE",
+  "@pulseStatusSafe": { "description": "Pulse status label for safe" },
+
+  "pulseStatusCaution": "CAUTION",
+  "@pulseStatusCaution": { "description": "Pulse status label for caution" },
+
+  "pulseStatusFreeze": "FREEZE",
+  "@pulseStatusFreeze": { "description": "Pulse status label for freeze" },
+
+  "pulseMessageSafe": "You're good to spend",
+  "@pulseMessageSafe": { "description": "Message when pulse status is safe" },
+
+  "pulseMessageCaution": "Be careful with spending",
+  "@pulseMessageCaution": { "description": "Message when pulse status is caution" },
+
+  "pulseMessageFreeze": "Stop non-essential spending",
+  "@pulseMessageFreeze": { "description": "Message when pulse status is freeze" },
+
+  "todaysStatus": "TODAY'S STATUS",
+  "@todaysStatus": { "description": "Daily pulse section header" },
+
+  "safeToSpend": "Safe to Spend",
+  "@safeToSpend": { "description": "Safe-to-spend amount label" },
+
+  "safeToSpendToday": "Safe to Spend Today",
+  "@safeToSpendToday": { "description": "Safe-to-spend label on pulse card" },
+
+  "upcomingThisWeek": "Upcoming This Week",
+  "@upcomingThisWeek": { "description": "Upcoming charges section header" },
+
+  "seeAll": "See All",
+  "@seeAll": { "description": "See all link text" },
+
+  "noUpcomingCharges": "No upcoming charges",
+  "@noUpcomingCharges": { "description": "Empty state for upcoming charges" },
+
+  "addSubscriptionsToTrack": "Add subscriptions to track them",
+  "@addSubscriptionsToTrack": { "description": "Empty state subtitle for upcoming charges" },
+
+  "today": "Today",
+  "@today": { "description": "Label when charge is due today" },
+
+  "tomorrow": "Tomorrow",
+  "@tomorrow": { "description": "Label when charge is due tomorrow" },
+
+  "inDays": "In {count} days",
+  "@inDays": {
+    "description": "Label for future charge date",
+    "placeholders": {
+      "count": { "type": "int", "example": "3" }
+    }
+  },
+
+  "subscription": "Subscription",
+  "@subscription": { "description": "Generic subscription label" },
+
+  "mayCauseOverdraft": "May cause overdraft",
+  "@mayCauseOverdraft": { "description": "Overdraft warning on upcoming charge" },
+
+  "monthlyCommitment": "Monthly Commitment",
+  "@monthlyCommitment": { "description": "Total monthly spending label" },
+
+  "yourSubscriptions": "Your Subscriptions ({count})",
+  "@yourSubscriptions": {
+    "description": "Subscriptions list header with count",
+    "placeholders": {
+      "count": { "type": "int", "example": "5" }
+    }
+  },
+
+  "noActiveSubscriptions": "No active subscriptions found",
+  "@noActiveSubscriptions": { "description": "Empty state for subscriptions" },
+
+  "tabActive": "Active",
+  "@tabActive": { "description": "Active subscriptions tab" },
+
+  "tabHistory": "History",
+  "@tabHistory": { "description": "History subscriptions tab" },
+
+  "noSubscriptionHistory": "No subscription history",
+  "@noSubscriptionHistory": { "description": "Empty state for history tab" },
+
+  "cancelledSubsAppearHere": "Cancelled subscriptions will appear here",
+  "@cancelledSubsAppearHere": { "description": "History tab subtitle" },
+
+  "addNew": "Add New",
+  "@addNew": { "description": "Add new subscription button" },
+
+  "cancelledOn": "Cancelled {date}",
+  "@cancelledOn": {
+    "description": "Cancelled subscription date",
+    "placeholders": {
+      "date": { "type": "String", "example": "Jan 15, 2026" }
+    }
+  },
+
+  "scheduledCharges": "Scheduled Charges",
+  "@scheduledCharges": { "description": "Calendar day detail header" },
+
+  "estimatedTotal": "Estimated Total: {amount}",
+  "@estimatedTotal": {
+    "description": "Calendar day total",
+    "placeholders": {
+      "amount": { "type": "String", "example": "$123.45" }
+    }
+  },
+
+  "noScheduledCharges": "No scheduled charges",
+  "@noScheduledCharges": { "description": "Calendar empty day state" },
+
+  "markAllRead": "Mark all read",
+  "@markAllRead": { "description": "Mark all alerts as read button" },
+
+  "filterAll": "All",
+  "@filterAll": { "description": "All alerts filter" },
+
+  "filterCritical": "Critical",
+  "@filterCritical": { "description": "Critical alerts filter" },
+
+  "filterUnread": "Unread",
+  "@filterUnread": { "description": "Unread alerts filter" },
+
+  "newProtections": "{count} New Protections",
+  "@newProtections": {
+    "description": "Alert count header",
+    "placeholders": {
+      "count": { "type": "int", "example": "3" }
+    }
+  },
+
+  "shieldIsActive": "Shield is Active",
+  "@shieldIsActive": { "description": "No alerts header" },
+
+  "actionRequired": "Action required for {count} alerts",
+  "@actionRequired": {
+    "description": "Alert action subtitle",
+    "placeholders": {
+      "count": { "type": "int", "example": "2" }
+    }
+  },
+
+  "moneyIsSafe": "Your money is safe and guarded",
+  "@moneyIsSafe": { "description": "No alerts subtitle" },
+
+  "allClear": "All Clear",
+  "@allClear": { "description": "Empty alerts state title" },
+
+  "noThreatsDetected": "No threats detected at the moment.",
+  "@noThreatsDetected": { "description": "Empty alerts state subtitle" },
+
+  "failedToLoadAlerts": "Failed to load alerts",
+  "@failedToLoadAlerts": { "description": "Alert error state message" },
+
+  "tryAgain": "Try Again",
+  "@tryAgain": { "description": "Retry button text" },
+
+  "justNow": "Just now",
+  "@justNow": { "description": "Relative time for recent events" },
+
+  "minutesAgo": "{count} minute(s) ago",
+  "@minutesAgo": {
+    "description": "Relative time in minutes",
+    "placeholders": {
+      "count": { "type": "int", "example": "5" }
+    }
+  },
+
+  "hoursAgo": "{count} hour(s) ago",
+  "@hoursAgo": {
+    "description": "Relative time in hours",
+    "placeholders": {
+      "count": { "type": "int", "example": "2" }
+    }
+  },
+
+  "daysAgo": "{count} day(s) ago",
+  "@daysAgo": {
+    "description": "Relative time in days",
+    "placeholders": {
+      "count": { "type": "int", "example": "3" }
+    }
+  },
+
+  "sectionConnections": "Connections",
+  "@sectionConnections": { "description": "Settings connections section header" },
+
+  "sectionAccountSecurity": "Account & Security",
+  "@sectionAccountSecurity": { "description": "Settings security section header" },
+
+  "sectionSupport": "Support",
+  "@sectionSupport": { "description": "Settings support section header" },
+
+  "settingSecurity": "Security",
+  "@settingSecurity": { "description": "Security settings item" },
+
+  "settingSecuritySub": "Passcode, Face ID, Password",
+  "@settingSecuritySub": { "description": "Security settings subtitle" },
+
+  "settingNotifications": "Notifications",
+  "@settingNotifications": { "description": "Notification settings item" },
+
+  "settingNotificationsSub": "Alert & pulse frequency",
+  "@settingNotificationsSub": { "description": "Notification settings subtitle" },
+
+  "settingBilling": "Billing",
+  "@settingBilling": { "description": "Billing settings item" },
+
+  "settingBillingSub": "Manage your subscription",
+  "@settingBillingSub": { "description": "Billing settings subtitle" },
+
+  "settingHelpCenter": "Help Center",
+  "@settingHelpCenter": { "description": "Help center item" },
+
+  "settingHelpCenterSub": "Guides and troubleshooting",
+  "@settingHelpCenterSub": { "description": "Help center subtitle" },
+
+  "settingContactUs": "Contact Us",
+  "@settingContactUs": { "description": "Contact support item" },
+
+  "settingContactUsSub": "Chat with the Guardian team",
+  "@settingContactUsSub": { "description": "Contact support subtitle" },
+
+  "settingPrivacyPolicy": "Privacy Policy",
+  "@settingPrivacyPolicy": { "description": "Privacy policy item" },
+
+  "settingPrivacyPolicySub": "How we guard your data",
+  "@settingPrivacyPolicySub": { "description": "Privacy policy subtitle" },
+
+  "signOut": "Sign Out",
+  "@signOut": { "description": "Sign out button text" },
+
+  "signOutConfirmTitle": "Sign Out?",
+  "@signOutConfirmTitle": { "description": "Sign out confirmation dialog title" },
+
+  "signOutConfirmMessage": "Your data will remain guarded, but you will need to sign back in.",
+  "@signOutConfirmMessage": { "description": "Sign out confirmation dialog message" },
+
+  "cancel": "Cancel",
+  "@cancel": { "description": "Cancel button text" },
+
+  "proPlan": "PRO PLAN",
+  "@proPlan": { "description": "Pro subscription badge" },
+
+  "freePlan": "FREE PLAN",
+  "@freePlan": { "description": "Free tier badge" },
+
+  "bankConnections": "Bank Connections",
+  "@bankConnections": { "description": "Bank connections settings label" },
+
+  "emailScanning": "Email Scanning",
+  "@emailScanning": { "description": "Email scanning settings label" },
+
+  "notConnected": "Not connected",
+  "@notConnected": { "description": "Connection status when disconnected" },
+
+  "accountsLinked": "{count} account(s) linked",
+  "@accountsLinked": {
+    "description": "Bank connection status",
+    "placeholders": {
+      "count": { "type": "int", "example": "2" }
+    }
+  },
+
+  "scanningEmail": "Scanning {email}",
+  "@scanningEmail": {
+    "description": "Email scanning status",
+    "placeholders": {
+      "email": { "type": "String", "example": "user@email.com" }
+    }
+  },
+
+  "loading": "Loading...",
+  "@loading": { "description": "Generic loading text" },
+
+  "connectedInstitutions": "Connected Institutions",
+  "@connectedInstitutions": { "description": "Bank connections section header" },
+
+  "linkNewAccount": "Link New Account",
+  "@linkNewAccount": { "description": "Add new bank account button" },
+
+  "bankHeroTitle": "The Foundation of Protection",
+  "@bankHeroTitle": { "description": "Bank connection hero section title" },
+
+  "bankHeroDescription": "Connect your bank to automatically detect subscriptions and track your real-time safe-to-spend balance.",
+  "@bankHeroDescription": { "description": "Bank connection hero section description" },
+
+  "bankConnectedSuccess": "Bank connected successfully!",
+  "@bankConnectedSuccess": { "description": "Bank connection success message" },
+
+  "billingDetails": "Billing Details",
+  "@billingDetails": { "description": "Subscription detail section" },
+
+  "protectionStatus": "Protection Status",
+  "@protectionStatus": { "description": "Subscription protection section" },
+
+  "nextCharge": "Next Charge",
+  "@nextCharge": { "description": "Next charge date label" },
+
+  "frequency": "Frequency",
+  "@frequency": { "description": "Billing frequency label" },
+
+  "source": "Source",
+  "@source": { "description": "Subscription source label" },
+
+  "guarded": "Guarded",
+  "@guarded": { "description": "Active protection status" },
+
+  "deleteSubscription": "Delete Subscription",
+  "@deleteSubscription": { "description": "Delete subscription button" },
+
+  "authJoinTheGuard": "Join the Guard",
+  "@authJoinTheGuard": { "description": "Register page header" },
+
+  "authWelcomeBack": "Welcome Back",
+  "@authWelcomeBack": { "description": "Login page header" },
+
+  "authSubtitle": "Silent protection for your peace of mind.",
+  "@authSubtitle": { "description": "Auth page subtitle" },
+
+  "fieldFullName": "Full Name",
+  "@fieldFullName": { "description": "Full name form field label" },
+
+  "fieldEmail": "Email Address",
+  "@fieldEmail": { "description": "Email form field label" },
+
+  "fieldPassword": "Password",
+  "@fieldPassword": { "description": "Password form field label" },
+
+  "forgotPassword": "Forgot Password?",
+  "@forgotPassword": { "description": "Forgot password link" },
+
+  "createAccount": "Create Account",
+  "@createAccount": { "description": "Register submit button" },
+
+  "signIn": "Sign In",
+  "@signIn": { "description": "Login submit button" },
+
+  "couldNotLoadPulse": "Could not load pulse",
+  "@couldNotLoadPulse": { "description": "Pulse error state message" },
+
+  "tapToRetry": "Tap to retry",
+  "@tapToRetry": { "description": "Retry tap hint" },
+
+  "loadingYourPulse": "Loading your pulse...",
+  "@loadingYourPulse": { "description": "Pulse loading state message" },
+
+  "quickActionAdd": "Add",
+  "@quickActionAdd": { "description": "Quick action: add subscription" },
+
+  "quickActionBank": "Bank",
+  "@quickActionBank": { "description": "Quick action: connect bank" },
+
+  "quickActionEmail": "Email",
+  "@quickActionEmail": { "description": "Quick action: connect email" },
+
+  "quickActionSettings": "Settings",
+  "@quickActionSettings": { "description": "Quick action: open settings" },
+
+  "billingCycleMonthly": "Monthly",
+  "@billingCycleMonthly": { "description": "Monthly billing cycle" },
+
+  "billingCycleWeekly": "Weekly",
+  "@billingCycleWeekly": { "description": "Weekly billing cycle" },
+
+  "billingCycleYearly": "Yearly",
+  "@billingCycleYearly": { "description": "Yearly billing cycle" },
+
+  "themeLight": "Light",
+  "@themeLight": { "description": "Light theme option" },
+
+  "themeDark": "Dark",
+  "@themeDark": { "description": "Dark theme option" },
+
+  "themeSystem": "System",
+  "@themeSystem": { "description": "System theme option" },
+
+  "themeLightSub": "Clean white theme",
+  "@themeLightSub": { "description": "Light theme description" },
+
+  "themeDarkSub": "Guardian Charcoal theme",
+  "@themeDarkSub": { "description": "Dark theme description" },
+
+  "themeSystemSub": "Follow device settings",
+  "@themeSystemSub": { "description": "System theme description" },
+
+  "appVersion": "Money Guardian v{version}",
+  "@appVersion": {
+    "description": "App version footer text",
+    "placeholders": {
+      "version": { "type": "String", "example": "1.0.0" }
+    }
+  }
+}

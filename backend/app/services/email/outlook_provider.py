@@ -309,7 +309,7 @@ class OutlookProvider(EmailProvider):
 
         return f"receivedDateTime ge {date_str} and ({subject_conditions})"
 
-    def _parse_message(self, data: dict) -> EmailMessage:
+    def _parse_message(self, data: dict[str, object]) -> EmailMessage:
         """Parse Microsoft Graph message response."""
         from_data = data.get("from", {}).get("emailAddress", {})
         from_address = from_data.get("address", "")

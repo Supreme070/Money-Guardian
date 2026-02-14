@@ -3,14 +3,26 @@
 from datetime import datetime, timezone
 from uuid import UUID
 
+import orjson
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select, func
 
 from app.api.deps import CurrentUserDep, DbSessionDep
+from app.core.cache import cache_delete, cache_get, cache_set
 from app.models.alert import Alert
 from app.schemas.alert import AlertListResponse, AlertMarkRead, AlertResponse
 
 router = APIRouter()
+
+# Cache TTLs in seconds
+_ALERTS_CACHE_TTL = 120  # 2 minutes
+
+
+async def _invalidate_alert_caches(tenant_id: UUID, user_id: UUID) -> None:
+    """Invalidate alert list and pulse caches after mutation."""
+    await cache_delete(f"alerts:{tenant_id}:{user_id}")
+    # Pulse shows unread_alerts_count, so invalidate it too
+    await cache_delete(f"pulse:{tenant_id}:{user_id}")
 
 
 @router.get("", response_model=AlertListResponse)
@@ -24,6 +36,13 @@ async def list_alerts(
 
     CRITICAL: Filtered by tenant_id from JWT.
     """
+    # Only cache the default (all non-dismissed) list
+    cache_key = f"alerts:{current_user.tenant_id}:{current_user.user_id}"
+    if not unread_only:
+        cached = await cache_get(cache_key)
+        if cached is not None:
+            return AlertListResponse.model_validate(orjson.loads(cached))
+
     query = select(Alert).where(
         Alert.tenant_id == current_user.tenant_id,
         Alert.user_id == current_user.user_id,
@@ -42,12 +61,17 @@ async def list_alerts(
     unread_count = sum(1 for a in alerts if not a.is_read)
     critical_count = sum(1 for a in alerts if a.severity == "critical")
 
-    return AlertListResponse(
+    response = AlertListResponse(
         alerts=[AlertResponse.model_validate(a) for a in alerts],
         total_count=len(alerts),
         unread_count=unread_count,
         critical_count=critical_count,
     )
+
+    if not unread_only:
+        await cache_set(cache_key, response.model_dump(mode="json"), _ALERTS_CACHE_TTL)
+
+    return response
 
 
 @router.get("/{alert_id}", response_model=AlertResponse)
@@ -110,6 +134,9 @@ async def mark_alerts_read(
 
     await db.commit()
 
+    if updated_count > 0:
+        await _invalidate_alert_caches(current_user.tenant_id, current_user.user_id)
+
     return {"marked_read": updated_count}
 
 
@@ -143,5 +170,7 @@ async def dismiss_alert(
     alert.dismissed_at = datetime.now(timezone.utc)
     db.add(alert)
     await db.commit()
+
+    await _invalidate_alert_caches(current_user.tenant_id, current_user.user_id)
 
     return {"message": "Alert dismissed"}

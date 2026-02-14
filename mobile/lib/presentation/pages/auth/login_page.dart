@@ -5,19 +5,9 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../presentation/blocs/auth/auth_bloc.dart';
 import '../../../presentation/blocs/auth/auth_event.dart';
 import '../../../presentation/blocs/auth/auth_state.dart';
-
-// --- Color System (Consistent with HomePage) ---
-class AppColors {
-  static const Color background = Color(0xFFFFFFFF);
-  static const Color surface = Color(0xFFF5F5F7);
-  static const Color primary = Color(0xFFCEA734); // Sovereign Gold
-  static const Color primaryDark = Color(0xFFB8941F);
-  static const Color textPrimary = Color(0xFF1A1A1A);
-  static const Color textSecondary = Color(0xFF666666);
-  static const Color textTertiary = Color(0xFF999999);
-  static const Color safe = Color(0xFF00E676);
-  static const Color freeze = Color(0xFFCF6679);
-}
+import '../../../core/di/injection.dart';
+import '../../../core/services/analytics_service.dart';
+import '../../../src/theme/light_color.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -34,6 +24,12 @@ class _LoginPageState extends State<LoginPage> {
 
   bool _obscurePassword = true;
   bool _isRegisterMode = false;
+
+  @override
+  void initState() {
+    super.initState();
+    getIt<AnalyticsService>().logScreenView(screenName: 'Login');
+  }
 
   @override
   void dispose() {
@@ -73,14 +69,14 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: LightColor.background,
       body: BlocConsumer<AuthBloc, AuthState>(
         listener: (context, state) {
           if (state is AuthAuthenticated) {
             Navigator.pushReplacementNamed(context, state.user.isNewUser ? '/onboarding' : '/home');
           } else if (state is AuthError) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(state.message), backgroundColor: AppColors.freeze),
+              SnackBar(content: Text(state.message), backgroundColor: LightColor.freeze),
             );
           }
         },
@@ -102,10 +98,10 @@ class _LoginPageState extends State<LoginPage> {
                   // 2. Header Text
                   Text(
                     _isRegisterMode ? 'Join the Guard' : 'Welcome Back',
-                    style: GoogleFonts.inter(
+                    style: GoogleFonts.mulish(
                       fontSize: 32,
                       fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
+                      color: LightColor.textPrimary,
                       letterSpacing: -1,
                     ),
                   ),
@@ -113,9 +109,9 @@ class _LoginPageState extends State<LoginPage> {
                   Text(
                     'Silent protection for your peace of mind.',
                     textAlign: TextAlign.center,
-                    style: GoogleFonts.inter(
+                    style: GoogleFonts.mulish(
                       fontSize: 16,
-                      color: AppColors.textSecondary,
+                      color: LightColor.textSecondary,
                       fontWeight: FontWeight.w400,
                     ),
                   ),
@@ -153,7 +149,7 @@ class _LoginPageState extends State<LoginPage> {
                           suffixIcon: IconButton(
                             icon: Icon(
                               _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                              color: AppColors.textTertiary,
+                              color: LightColor.textTertiary,
                               size: 20,
                             ),
                             onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
@@ -167,8 +163,8 @@ class _LoginPageState extends State<LoginPage> {
                               onPressed: () { /* Forgot Password Logic */ },
                               child: Text(
                                 'Forgot Password?',
-                                style: GoogleFonts.inter(
-                                  color: AppColors.primary,
+                                style: GoogleFonts.mulish(
+                                  color: LightColor.primary,
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -185,7 +181,7 @@ class _LoginPageState extends State<LoginPage> {
                           child: ElevatedButton(
                             onPressed: isLoading ? null : _submit,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.textPrimary,
+                              backgroundColor: LightColor.textPrimary,
                               foregroundColor: Colors.white,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(16),
@@ -200,7 +196,7 @@ class _LoginPageState extends State<LoginPage> {
                                   )
                                 : Text(
                                     _isRegisterMode ? 'Create Account' : 'Sign In',
-                                    style: GoogleFonts.inter(
+                                    style: GoogleFonts.mulish(
                                       fontSize: 16,
                                       fontWeight: FontWeight.w600,
                                     ),
@@ -219,14 +215,14 @@ class _LoginPageState extends State<LoginPage> {
                     children: [
                       Text(
                         _isRegisterMode ? 'Already a member?' : 'New to Money Guardian?',
-                        style: GoogleFonts.inter(color: AppColors.textSecondary, fontSize: 14),
+                        style: GoogleFonts.mulish(color: LightColor.textSecondary, fontSize: 14),
                       ),
                       TextButton(
                         onPressed: _toggleMode,
                         child: Text(
                           _isRegisterMode ? 'Sign In' : 'Join Now',
-                          style: GoogleFonts.inter(
-                            color: AppColors.primary,
+                          style: GoogleFonts.mulish(
+                            color: LightColor.primary,
                             fontWeight: FontWeight.w700,
                             fontSize: 14,
                           ),
@@ -259,14 +255,14 @@ class _LoginPageState extends State<LoginPage> {
       obscureText: obscureText,
       enabled: enabled,
       keyboardType: keyboardType,
-      style: GoogleFonts.inter(color: AppColors.textPrimary, fontSize: 16),
+      style: GoogleFonts.mulish(color: LightColor.textPrimary, fontSize: 16),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: GoogleFonts.inter(color: AppColors.textTertiary, fontSize: 14),
-        prefixIcon: Icon(icon, color: AppColors.textTertiary, size: 20),
+        labelStyle: GoogleFonts.mulish(color: LightColor.textTertiary, fontSize: 14),
+        prefixIcon: Icon(icon, color: LightColor.textTertiary, size: 20),
         suffixIcon: suffixIcon,
         filled: true,
-        fillColor: AppColors.surface,
+        fillColor: LightColor.surface,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide.none,
@@ -277,7 +273,7 @@ class _LoginPageState extends State<LoginPage> {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+          borderSide: const BorderSide(color: LightColor.primary, width: 1.5),
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
       ),
@@ -298,18 +294,18 @@ class AscendingGuardianLogo extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            _buildBar(24, AppColors.primary.withOpacity(0.4)),
+            _buildBar(24, LightColor.primary.withOpacity(0.4)),
             const SizedBox(width: 6),
-            _buildBar(40, AppColors.primary.withOpacity(0.7)),
+            _buildBar(40, LightColor.primary.withOpacity(0.7)),
             const SizedBox(width: 6),
-            _buildBar(56, AppColors.primary),
+            _buildBar(56, LightColor.primary),
           ],
         ),
         const SizedBox(height: 12),
         Text(
           'MONEY GUARDIAN',
-          style: GoogleFonts.inter(
-            color: AppColors.textPrimary,
+          style: GoogleFonts.mulish(
+            color: LightColor.textPrimary,
             fontSize: 14,
             fontWeight: FontWeight.w800,
             letterSpacing: 4,

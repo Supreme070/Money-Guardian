@@ -8,20 +8,7 @@ import '../../data/models/subscription_model.dart';
 import '../../presentation/blocs/subscriptions/subscription_bloc.dart';
 import '../../presentation/blocs/subscriptions/subscription_event.dart';
 import '../../presentation/blocs/subscriptions/subscription_state.dart';
-
-// --- Color System (Consistent) ---
-class AppColors {
-  static const Color background = Color(0xFFFFFFFF);
-  static const Color surface = Color(0xFFF5F5F7);
-  static const Color primary = Color(0xFFCEA734); 
-  static const Color textPrimary = Color(0xFF1A1A1A);
-  static const Color textSecondary = Color(0xFF666666);
-  static const Color textTertiary = Color(0xFF999999);
-  static const Color safe = Color(0xFF00E676);
-  static const Color freeze = Color(0xFFCF6679);
-  static const Color caution = Color(0xFFFFB74D);
-  static const Color divider = Color(0xFFE0E0E0);
-}
+import '../theme/light_color.dart';
 
 /// Common subscription templates for quick selection
 class SubscriptionTemplate {
@@ -98,10 +85,10 @@ class _AddSubscriptionPageState extends State<AddSubscriptionPage> {
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: const ColorScheme.light(
-              primary: AppColors.primary,
+              primary: LightColor.primary,
               onPrimary: Colors.white,
               surface: Colors.white,
-              onSurface: AppColors.textPrimary,
+              onSurface: LightColor.textPrimary,
             ),
           ),
           child: child!,
@@ -132,18 +119,18 @@ class _AddSubscriptionPageState extends State<AddSubscriptionPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: LightColor.background,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: LightColor.background,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.close_rounded, color: AppColors.textPrimary),
+          icon: const Icon(Icons.close_rounded, color: LightColor.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           'Add Subscription',
-          style: GoogleFonts.inter(
-            color: AppColors.textPrimary,
+          style: GoogleFonts.mulish(
+            color: LightColor.textPrimary,
             fontSize: 18,
             fontWeight: FontWeight.w700,
           ),
@@ -154,7 +141,7 @@ class _AddSubscriptionPageState extends State<AddSubscriptionPage> {
         listener: (context, state) {
           if (state is SubscriptionLoaded) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Subscription added!'), backgroundColor: AppColors.safe),
+              const SnackBar(content: Text('Subscription added!'), backgroundColor: LightColor.safe),
             );
             Navigator.pop(context, true);
           }
@@ -172,7 +159,7 @@ class _AddSubscriptionPageState extends State<AddSubscriptionPage> {
                     children: [
                       _buildTemplateSection(),
                       const SizedBox(height: 24),
-                      const Divider(color: AppColors.surface, thickness: 1),
+                      const Divider(color: LightColor.surface, thickness: 1),
                       const SizedBox(height: 20),
                       _buildForm(),
                       const SizedBox(height: 40),
@@ -192,7 +179,7 @@ class _AddSubscriptionPageState extends State<AddSubscriptionPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Popular Services', style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
+        Text('Popular Services', style: GoogleFonts.mulish(fontSize: 14, fontWeight: FontWeight.w600, color: LightColor.textSecondary)),
         const SizedBox(height: 12),
         SizedBox(
           height: 80,
@@ -216,7 +203,7 @@ class _AddSubscriptionPageState extends State<AddSubscriptionPage> {
         width: 72,
         margin: const EdgeInsets.only(right: 12),
         decoration: BoxDecoration(
-          color: isSelected ? color.withOpacity(0.1) : AppColors.surface,
+          color: isSelected ? color.withOpacity(0.1) : LightColor.surface,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSelected ? color : Colors.transparent,
@@ -236,14 +223,14 @@ class _AddSubscriptionPageState extends State<AddSubscriptionPage> {
               child: Center(
                 child: Text(
                   template.name[0],
-                  style: GoogleFonts.inter(color: color, fontWeight: FontWeight.w700),
+                  style: GoogleFonts.mulish(color: color, fontWeight: FontWeight.w700),
                 ),
               ),
             ),
             const SizedBox(height: 8),
             Text(
               template.name,
-              style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+              style: GoogleFonts.mulish(fontSize: 10, fontWeight: FontWeight.w600, color: LightColor.textPrimary),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -282,19 +269,19 @@ class _AddSubscriptionPageState extends State<AddSubscriptionPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Billing Cycle', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
+                    Text('Billing Cycle', style: GoogleFonts.mulish(fontSize: 13, fontWeight: FontWeight.w600, color: LightColor.textSecondary)),
                     const SizedBox(height: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       decoration: BoxDecoration(
-                        color: AppColors.surface,
+                        color: LightColor.surface,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: DropdownButtonHideUnderline(
                         child: DropdownButton<BillingCycle>(
                           value: _billingCycle,
                           isExpanded: true,
-                          items: BillingCycle.values.map((c) => DropdownMenuItem(value: c, child: Text(c.name.toUpperCase(), style: GoogleFonts.inter(fontSize: 13)))).toList(),
+                          items: BillingCycle.values.map((c) => DropdownMenuItem(value: c, child: Text(c.name.toUpperCase(), style: GoogleFonts.mulish(fontSize: 13)))).toList(),
                           onChanged: (v) => setState(() => _billingCycle = v!),
                         ),
                       ),
@@ -306,21 +293,21 @@ class _AddSubscriptionPageState extends State<AddSubscriptionPage> {
           ),
           const SizedBox(height: 20),
           
-          Text('First Payment', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
+          Text('First Payment', style: GoogleFonts.mulish(fontSize: 13, fontWeight: FontWeight.w600, color: LightColor.textSecondary)),
           const SizedBox(height: 8),
           GestureDetector(
             onTap: _selectDate,
             child: Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppColors.surface,
+                color: LightColor.surface,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.calendar_today, size: 18, color: AppColors.textPrimary),
+                  const Icon(Icons.calendar_today, size: 18, color: LightColor.textPrimary),
                   const SizedBox(width: 12),
-                  Text(DateFormat('MMM d, yyyy').format(_nextBillingDate), style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                  Text(DateFormat('MMM d, yyyy').format(_nextBillingDate), style: GoogleFonts.mulish(fontWeight: FontWeight.w600, color: LightColor.textPrimary)),
                 ],
               ),
             ),
@@ -340,22 +327,31 @@ class _AddSubscriptionPageState extends State<AddSubscriptionPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
+        Text(label, style: GoogleFonts.mulish(fontSize: 13, fontWeight: FontWeight.w600, color: LightColor.textSecondary)),
         const SizedBox(height: 8),
         TextFormField(
           controller: controller,
           keyboardType: isNumber ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text,
-          style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+          style: GoogleFonts.mulish(fontWeight: FontWeight.w600, color: LightColor.textPrimary),
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: GoogleFonts.inter(color: AppColors.textTertiary),
-            prefixIcon: Icon(icon, color: AppColors.textTertiary, size: 20),
+            hintStyle: GoogleFonts.mulish(color: LightColor.textTertiary),
+            prefixIcon: Icon(icon, color: LightColor.textTertiary, size: 20),
             filled: true,
-            fillColor: AppColors.surface,
+            fillColor: LightColor.surface,
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
             contentPadding: const EdgeInsets.symmetric(vertical: 16),
           ),
-          validator: (value) => value == null || value.isEmpty ? 'Required' : null,
+          validator: (value) {
+            if (value == null || value.isEmpty) return 'Required';
+            if (isNumber) {
+              final parsed = double.tryParse(value);
+              if (parsed == null) return 'Enter a valid number';
+              if (parsed <= 0) return 'Must be greater than 0';
+              if (parsed > 99999.99) return 'Amount too large';
+            }
+            return null;
+          },
         ),
       ],
     );
@@ -375,14 +371,14 @@ class _AddSubscriptionPageState extends State<AddSubscriptionPage> {
           child: ElevatedButton(
             onPressed: isLoading ? null : _submit,
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.textPrimary,
+              backgroundColor: LightColor.textPrimary,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               elevation: 0,
             ),
             child: isLoading
                 ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                : Text('Save Subscription', style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w700)),
+                : Text('Save Subscription', style: GoogleFonts.mulish(fontSize: 16, fontWeight: FontWeight.w700)),
           ),
         ),
       ),

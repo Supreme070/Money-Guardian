@@ -24,7 +24,7 @@ AIFlagType = Literal[
 ]
 
 # Strict typing for source - supports all email providers
-SourceType = Literal["manual", "plaid", "gmail", "outlook", "yahoo", "email", "ai_detected"]
+SourceType = Literal["manual", "plaid", "bank", "gmail", "outlook", "yahoo", "email", "ai_detected"]
 
 
 class SubscriptionCreate(BaseModel):
@@ -41,6 +41,8 @@ class SubscriptionCreate(BaseModel):
     color: str | None = Field(default=None, pattern=r"^#[0-9A-Fa-f]{6}$")
     icon: str | None = Field(default=None, max_length=50)
     logo_url: str | None = Field(default=None, max_length=500)
+    source: SourceType = Field(default="manual")
+    bank_transaction_pattern: str | None = Field(default=None, max_length=255)
 
     @field_validator("currency")
     @classmethod

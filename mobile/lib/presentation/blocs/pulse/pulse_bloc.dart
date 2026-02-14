@@ -1,6 +1,8 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
 
+import '../../../core/di/injection.dart';
+import '../../../core/services/analytics_service.dart';
 import '../../../data/repositories/pulse_repository.dart';
 import 'pulse_event.dart';
 import 'pulse_state.dart';
@@ -23,6 +25,7 @@ class PulseBloc extends Bloc<PulseEvent, PulseState> {
 
     try {
       final pulse = await _pulseRepository.getPulse();
+      getIt<AnalyticsService>().logPulseViewed(status: pulse.status.name);
       emit(PulseLoaded(pulse: pulse));
     } catch (e) {
       emit(PulseError(message: e.toString()));
@@ -44,6 +47,7 @@ class PulseBloc extends Bloc<PulseEvent, PulseState> {
 
     try {
       final pulse = await _pulseRepository.refreshPulse();
+      getIt<AnalyticsService>().logPulseRefreshed();
       emit(PulseLoaded(pulse: pulse));
     } catch (e) {
       emit(PulseError(message: e.toString()));

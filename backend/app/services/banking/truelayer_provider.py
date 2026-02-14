@@ -425,7 +425,7 @@ class TrueLayerProvider(BankingProvider):
 
     def _parse_transaction(
         self,
-        tx: dict,
+        tx: dict[str, object],
         account_id: str,
     ) -> TransactionInfo:
         """Parse TrueLayer transaction into TransactionInfo."""

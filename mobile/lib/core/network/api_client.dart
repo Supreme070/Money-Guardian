@@ -30,7 +30,7 @@ class ApiClient {
   /// POST request
   Future<Response<T>> post<T>(
     String path, {
-    dynamic data,
+    Object? data,
     Map<String, dynamic>? queryParameters,
     Options? options,
   }) async {
@@ -49,7 +49,7 @@ class ApiClient {
   /// PUT request
   Future<Response<T>> put<T>(
     String path, {
-    dynamic data,
+    Object? data,
     Map<String, dynamic>? queryParameters,
     Options? options,
   }) async {
@@ -68,7 +68,7 @@ class ApiClient {
   /// PATCH request
   Future<Response<T>> patch<T>(
     String path, {
-    dynamic data,
+    Object? data,
     Map<String, dynamic>? queryParameters,
     Options? options,
   }) async {
@@ -87,7 +87,7 @@ class ApiClient {
   /// DELETE request
   Future<Response<T>> delete<T>(
     String path, {
-    dynamic data,
+    Object? data,
     Map<String, dynamic>? queryParameters,
     Options? options,
   }) async {
@@ -146,12 +146,13 @@ class ApiClient {
   }
 
   /// Extract error message from response
-  String _extractErrorMessage(Response? response) {
-    if (response?.data is Map) {
-      final data = response!.data as Map;
+  String _extractErrorMessage(Response<Object?>? response) {
+    if (response?.data is Map<String, Object?>) {
+      final Map<String, Object?> data =
+          response!.data! as Map<String, Object?>;
       // Handle FastAPI detail structure
-      final detail = data['detail'];
-      if (detail is Map) {
+      final Object? detail = data['detail'];
+      if (detail is Map<String, Object?>) {
         return detail['message'] as String? ?? 'Server error occurred';
       }
       if (detail is String) {
@@ -165,11 +166,12 @@ class ApiClient {
   }
 
   /// Handle 402 Payment Required (tier limit exceeded)
-  TierLimitException _handleTierLimitError(Response? response) {
-    if (response?.data is Map) {
-      final data = response!.data as Map;
-      final detail = data['detail'];
-      if (detail is Map) {
+  TierLimitException _handleTierLimitError(Response<Object?>? response) {
+    if (response?.data is Map<String, Object?>) {
+      final Map<String, Object?> data =
+          response!.data! as Map<String, Object?>;
+      final Object? detail = data['detail'];
+      if (detail is Map<String, Object?>) {
         return TierLimitException(
           message: detail['message'] as String? ??
               'Subscription limit reached. Upgrade to Pro.',

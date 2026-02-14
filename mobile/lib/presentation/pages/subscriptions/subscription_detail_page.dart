@@ -7,19 +7,7 @@ import '../../../data/models/subscription_model.dart';
 import '../../../presentation/blocs/subscriptions/subscription_bloc.dart';
 import '../../../presentation/blocs/subscriptions/subscription_event.dart';
 import '../../../presentation/blocs/subscriptions/subscription_state.dart';
-
-// --- Color System (Consistent) ---
-class AppColors {
-  static const Color background = Color(0xFFFFFFFF);
-  static const Color surface = Color(0xFFF5F5F7);
-  static const Color primary = Color(0xFFCEA734); 
-  static const Color textPrimary = Color(0xFF1A1A1A);
-  static const Color textSecondary = Color(0xFF666666);
-  static const Color textTertiary = Color(0xFF999999);
-  static const Color safe = Color(0xFF00E676);
-  static const Color freeze = Color(0xFFCF6679);
-  static const Color caution = Color(0xFFFFB74D);
-}
+import '../../../src/theme/light_color.dart';
 
 class SubscriptionDetailPage extends StatefulWidget {
   final SubscriptionModel subscription;
@@ -45,15 +33,15 @@ class _SubscriptionDetailPageState extends State<SubscriptionDetailPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: LightColor.background,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: LightColor.background,
         elevation: 0,
         centerTitle: false,
         title: Text(
           'Detail',
-          style: GoogleFonts.inter(
-            color: AppColors.textPrimary,
+          style: GoogleFonts.mulish(
+            color: LightColor.textPrimary,
             fontSize: 24,
             fontWeight: FontWeight.w700,
             letterSpacing: -0.5,
@@ -101,7 +89,7 @@ class _SubscriptionDetailPageState extends State<SubscriptionDetailPage> {
                   onPressed: () {
                     context.read<SubscriptionBloc>().add(SubscriptionDeleteRequested(subscriptionId: _sub.id));
                   },
-                  child: Text('Delete Subscription', style: GoogleFonts.inter(color: AppColors.freeze, fontWeight: FontWeight.w600)),
+                  child: Text('Delete Subscription', style: GoogleFonts.mulish(color: LightColor.freeze, fontWeight: FontWeight.w600)),
                 ),
               ),
               const SizedBox(height: 40),
@@ -117,7 +105,7 @@ class _SubscriptionDetailPageState extends State<SubscriptionDetailPage> {
       width: double.infinity,
       padding: const EdgeInsets.all(32),
       decoration: BoxDecoration(
-        color: AppColors.textPrimary,
+        color: LightColor.textPrimary,
         borderRadius: BorderRadius.circular(24),
       ),
       child: Column(
@@ -126,26 +114,26 @@ class _SubscriptionDetailPageState extends State<SubscriptionDetailPage> {
             height: 64,
             width: 64,
             decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.2),
+              color: LightColor.primary.withOpacity(0.2),
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+              border: Border.all(color: LightColor.primary.withOpacity(0.3)),
             ),
             child: Center(
               child: Text(
                 _sub.name.substring(0, 1).toUpperCase(),
-                style: GoogleFonts.inter(color: AppColors.primary, fontSize: 28, fontWeight: FontWeight.w700),
+                style: GoogleFonts.mulish(color: LightColor.primary, fontSize: 28, fontWeight: FontWeight.w700),
               ),
             ),
           ),
           const SizedBox(height: 20),
           Text(
             _sub.name,
-            style: GoogleFonts.inter(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w700),
+            style: GoogleFonts.mulish(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 8),
           Text(
             '\$${_sub.amount.toStringAsFixed(2)} / ${_sub.billingCycle.name}',
-            style: GoogleFonts.inter(color: Colors.white.withOpacity(0.6), fontSize: 16),
+            style: GoogleFonts.mulish(color: Colors.white.withOpacity(0.6), fontSize: 16),
           ),
         ],
       ),
@@ -155,8 +143,8 @@ class _SubscriptionDetailPageState extends State<SubscriptionDetailPage> {
   Widget _buildSectionHeader(String title) {
     return Text(
       title,
-      style: GoogleFonts.inter(
-        color: AppColors.textPrimary,
+      style: GoogleFonts.mulish(
+        color: LightColor.textPrimary,
         fontSize: 18,
         fontWeight: FontWeight.w600,
       ),
@@ -167,7 +155,7 @@ class _SubscriptionDetailPageState extends State<SubscriptionDetailPage> {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: LightColor.surface,
         borderRadius: BorderRadius.circular(24),
       ),
       child: Column(
@@ -186,8 +174,8 @@ class _SubscriptionDetailPageState extends State<SubscriptionDetailPage> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: GoogleFonts.inter(color: AppColors.textSecondary, fontSize: 14)),
-        Text(value, style: GoogleFonts.inter(color: AppColors.textPrimary, fontWeight: FontWeight.w600, fontSize: 14)),
+        Text(label, style: GoogleFonts.mulish(color: LightColor.textSecondary, fontSize: 14)),
+        Text(value, style: GoogleFonts.mulish(color: LightColor.textPrimary, fontWeight: FontWeight.w600, fontSize: 14)),
       ],
     );
   }
@@ -196,21 +184,21 @@ class _SubscriptionDetailPageState extends State<SubscriptionDetailPage> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        border: Border.all(color: AppColors.safe.withOpacity(0.3)),
+        border: Border.all(color: LightColor.safe.withOpacity(0.3)),
         borderRadius: BorderRadius.circular(24),
-        color: AppColors.safe.withOpacity(0.05),
+        color: LightColor.safe.withOpacity(0.05),
       ),
       child: Row(
         children: [
-          const Icon(Icons.shield_outlined, color: AppColors.safe),
+          const Icon(Icons.shield_outlined, color: LightColor.safe),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Guarded', style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: AppColors.safe)),
+                Text('Guarded', style: GoogleFonts.mulish(fontWeight: FontWeight.w700, color: LightColor.safe)),
                 const SizedBox(height: 2),
-                Text('We will alert you 3 days before this charge.', style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary)),
+                Text('We will alert you 3 days before this charge.', style: GoogleFonts.mulish(fontSize: 12, color: LightColor.textSecondary)),
               ],
             ),
           ),

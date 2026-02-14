@@ -4,18 +4,9 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../blocs/auth/auth_bloc.dart';
 import '../../blocs/auth/auth_event.dart';
-
-// --- Color System (Consistent with Login/Home) ---
-class AppColors {
-  static const Color background = Color(0xFFFFFFFF);
-  static const Color surface = Color(0xFFF5F5F7);
-  static const Color primary = Color(0xFFCEA734); // Sovereign Gold
-  static const Color primaryDark = Color(0xFFB8941F);
-  static const Color textPrimary = Color(0xFF1A1A1A);
-  static const Color textSecondary = Color(0xFF666666);
-  static const Color textTertiary = Color(0xFF999999);
-  static const Color safe = Color(0xFF00E676);
-}
+import '../../../core/di/injection.dart';
+import '../../../core/services/analytics_service.dart';
+import '../../../src/theme/light_color.dart';
 
 class OnboardingPage extends StatefulWidget {
   const OnboardingPage({super.key});
@@ -34,9 +25,15 @@ class _OnboardingPageState extends State<OnboardingPage> {
   final int _totalPages = 4;
 
   @override
+  void initState() {
+    super.initState();
+    getIt<AnalyticsService>().logScreenView(screenName: 'Onboarding');
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: LightColor.background,
       body: SafeArea(
         child: Column(
           children: [
@@ -48,7 +45,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 children: [
                   _currentPage > 0 
                     ? IconButton(
-                        icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+                        icon: const Icon(Icons.arrow_back, color: LightColor.textPrimary),
                         onPressed: () => _pageController.previousPage(
                           duration: const Duration(milliseconds: 300),
                           curve: Curves.easeInOut,
@@ -62,7 +59,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                       height: 4,
                       width: 40,
                       decoration: BoxDecoration(
-                        color: AppColors.surface,
+                        color: LightColor.surface,
                         borderRadius: BorderRadius.circular(2),
                       ),
                       child: Row(
@@ -70,7 +67,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                           Container(
                             width: 40 * ((_currentPage + 1) / _totalPages),
                             decoration: BoxDecoration(
-                              color: AppColors.primary,
+                              color: LightColor.primary,
                               borderRadius: BorderRadius.circular(2),
                             ),
                           ),
@@ -82,8 +79,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
                     onPressed: _completeOnboarding,
                     child: Text(
                       'Skip',
-                      style: GoogleFonts.inter(
-                        color: AppColors.textTertiary,
+                      style: GoogleFonts.mulish(
+                        color: LightColor.textTertiary,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -174,23 +171,23 @@ class _OnboardingPageState extends State<OnboardingPage> {
             padding: const EdgeInsets.all(32),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: isHero ? AppColors.primary.withOpacity(0.1) : AppColors.surface,
-              border: isHero ? Border.all(color: AppColors.primary.withOpacity(0.3), width: 1) : null,
+              color: isHero ? LightColor.primary.withOpacity(0.1) : LightColor.surface,
+              border: isHero ? Border.all(color: LightColor.primary.withOpacity(0.3), width: 1) : null,
             ),
             child: Icon(
               icon,
               size: 64,
-              color: isHero ? AppColors.primary : AppColors.textPrimary,
+              color: isHero ? LightColor.primary : LightColor.textPrimary,
             ),
           ),
           const SizedBox(height: 40),
           Text(
             title,
             textAlign: TextAlign.center,
-            style: GoogleFonts.inter(
+            style: GoogleFonts.mulish(
               fontSize: 32,
               fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary,
+              color: LightColor.textPrimary,
               height: 1.1,
               letterSpacing: -1,
             ),
@@ -199,9 +196,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
           Text(
             subtitle,
             textAlign: TextAlign.center,
-            style: GoogleFonts.inter(
+            style: GoogleFonts.mulish(
               fontSize: 16,
-              color: AppColors.textSecondary,
+              color: LightColor.textSecondary,
               height: 1.5,
             ),
           ),
@@ -226,31 +223,31 @@ class _OnboardingPageState extends State<OnboardingPage> {
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: isDone ? AppColors.safe.withOpacity(0.1) : AppColors.surface,
+              color: isDone ? LightColor.safe.withOpacity(0.1) : LightColor.surface,
               borderRadius: BorderRadius.circular(24),
             ),
             child: Icon(
               isDone ? Icons.check_circle : icon,
               size: 48,
-              color: isDone ? AppColors.safe : AppColors.textPrimary,
+              color: isDone ? LightColor.safe : LightColor.textPrimary,
             ),
           ),
           const SizedBox(height: 32),
           Text(
             title,
-            style: GoogleFonts.inter(
+            style: GoogleFonts.mulish(
               fontSize: 24,
               fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary,
+              color: LightColor.textPrimary,
             ),
           ),
           const SizedBox(height: 12),
           Text(
             subtitle,
             textAlign: TextAlign.center,
-            style: GoogleFonts.inter(
+            style: GoogleFonts.mulish(
               fontSize: 15,
-              color: AppColors.textSecondary,
+              color: LightColor.textSecondary,
             ),
           ),
           const SizedBox(height: 40),
@@ -263,26 +260,26 @@ class _OnboardingPageState extends State<OnboardingPage> {
               padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
               decoration: BoxDecoration(
                 border: Border.all(
-                  color: isDone ? AppColors.safe : AppColors.primary.withOpacity(0.5),
+                  color: isDone ? LightColor.safe : LightColor.primary.withOpacity(0.5),
                   width: 2,
                 ),
                 borderRadius: BorderRadius.circular(16),
-                color: isDone ? AppColors.safe.withOpacity(0.05) : Colors.white,
+                color: isDone ? LightColor.safe.withOpacity(0.05) : Colors.white,
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
                     isDone ? Icons.check : Icons.link,
-                    color: isDone ? AppColors.safe : AppColors.primary,
+                    color: isDone ? LightColor.safe : LightColor.primary,
                   ),
                   const SizedBox(width: 12),
                   Text(
                     buttonLabel,
-                    style: GoogleFonts.inter(
+                    style: GoogleFonts.mulish(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
-                      color: isDone ? AppColors.safe : AppColors.primary,
+                      color: isDone ? LightColor.safe : LightColor.primary,
                     ),
                   ),
                 ],
@@ -301,7 +298,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
       child: ElevatedButton(
         onPressed: onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primary,
+          backgroundColor: LightColor.primary,
           foregroundColor: Colors.white,
           elevation: 0,
           shape: RoundedRectangleBorder(
@@ -310,7 +307,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
         ),
         child: Text(
           text,
-          style: GoogleFonts.inter(
+          style: GoogleFonts.mulish(
             fontSize: 16,
             fontWeight: FontWeight.w700,
           ),
@@ -324,8 +321,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
       onPressed: onPressed,
       child: Text(
         text,
-        style: GoogleFonts.inter(
-          color: AppColors.textPrimary,
+        style: GoogleFonts.mulish(
+          color: LightColor.textPrimary,
           fontSize: 16,
           fontWeight: FontWeight.w600,
         ),

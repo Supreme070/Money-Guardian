@@ -2,24 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 
 import '../../../data/models/subscription_model.dart';
 import '../../../presentation/blocs/subscriptions/subscription_bloc.dart';
 import '../../../presentation/blocs/subscriptions/subscription_event.dart';
 import '../../../presentation/blocs/subscriptions/subscription_state.dart';
 import '../subscriptions/subscription_detail_page.dart';
-
-// --- Color System (Consistent) ---
-class AppColors {
-  static const Color background = Color(0xFFFFFFFF);
-  static const Color surface = Color(0xFFF5F5F7);
-  static const Color primary = Color(0xFFCEA734); 
-  static const Color textPrimary = Color(0xFF1A1A1A);
-  static const Color textSecondary = Color(0xFF666666);
-  static const Color textTertiary = Color(0xFF999999);
-  static const Color safe = Color(0xFF00E676);
-  static const Color divider = Color(0xFFE0E0E0);
-}
+import '../../../core/di/injection.dart';
+import '../../../core/services/analytics_service.dart';
+import '../../../src/theme/light_color.dart';
 
 class CalendarPage extends StatefulWidget {
   const CalendarPage({super.key});
@@ -35,6 +27,7 @@ class _CalendarPageState extends State<CalendarPage> {
   @override
   void initState() {
     super.initState();
+    getIt<AnalyticsService>().logScreenView(screenName: 'Calendar');
     _currentMonth = DateTime(DateTime.now().year, DateTime.now().month);
     _selectedDate = DateTime.now();
     context.read<SubscriptionBloc>().add(const SubscriptionLoadRequested());
@@ -81,15 +74,15 @@ class _CalendarPageState extends State<CalendarPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: LightColor.background,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: LightColor.background,
         elevation: 0,
         centerTitle: false,
         title: Text(
           'Forecast',
-          style: GoogleFonts.inter(
-            color: AppColors.textPrimary,
+          style: GoogleFonts.mulish(
+            color: LightColor.textPrimary,
             fontSize: 24,
             fontWeight: FontWeight.w700,
             letterSpacing: -0.5,
@@ -99,7 +92,57 @@ class _CalendarPageState extends State<CalendarPage> {
       body: BlocBuilder<SubscriptionBloc, SubscriptionState>(
         builder: (context, state) {
           if (state is SubscriptionLoading) {
-            return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+            return Skeletonizer(
+              enabled: true,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 12),
+                    _buildMonthHeader(0),
+                    const SizedBox(height: 32),
+                    Container(
+                      height: 320,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: LightColor.surface),
+                      ),
+                      child: const SizedBox.expand(),
+                    ),
+                    const SizedBox(height: 32),
+                    Text('Scheduled Charges', style: GoogleFonts.mulish(fontSize: 18, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 16),
+                    ...List.generate(2, (_) => Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: LightColor.surface),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            height: 44, width: 44,
+                            decoration: BoxDecoration(
+                              color: LightColor.primary.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(Icons.receipt_long_outlined, color: LightColor.primary, size: 22),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(child: Text('Subscription', style: GoogleFonts.mulish(fontSize: 15, fontWeight: FontWeight.w600))),
+                          Text('\$9.99', style: GoogleFonts.mulish(fontSize: 16, fontWeight: FontWeight.w700)),
+                        ],
+                      ),
+                    )),
+                  ],
+                ),
+              ),
+            );
           }
 
           List<SubscriptionModel> subscriptions = [];
@@ -110,37 +153,44 @@ class _CalendarPageState extends State<CalendarPage> {
           final groupedSubs = _groupSubscriptionsByDate(subscriptions);
           final monthTotal = _getTotalForMonth(subscriptions);
 
-          return SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 12),
-                
-                // Month Selector & Summary
-                _buildMonthHeader(monthTotal),
-                
-                const SizedBox(height: 32),
+          return RefreshIndicator(
+            onRefresh: () async {
+              context.read<SubscriptionBloc>().add(const SubscriptionLoadRequested());
+            },
+            color: LightColor.primary,
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 12),
 
-                // Calendar Card
-                _buildCalendarCard(groupedSubs),
+                  // Month Selector & Summary
+                  _buildMonthHeader(monthTotal),
 
-                const SizedBox(height: 32),
+                  const SizedBox(height: 32),
 
-                // Selected Date Details
-                Text(
-                  'Scheduled Charges',
-                  style: GoogleFonts.inter(
-                    color: AppColors.textPrimary,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
+                  // Calendar Card
+                  _buildCalendarCard(groupedSubs),
+
+                  const SizedBox(height: 32),
+
+                  // Selected Date Details
+                  Text(
+                    'Scheduled Charges',
+                    style: GoogleFonts.mulish(
+                      color: LightColor.textPrimary,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                _buildSelectedDateDetails(groupedSubs),
-                
-                const SizedBox(height: 40),
-              ],
+                  const SizedBox(height: 16),
+                  _buildSelectedDateDetails(groupedSubs),
+
+                  const SizedBox(height: 40),
+                ],
+              ),
             ),
           );
         },
@@ -152,7 +202,7 @@ class _CalendarPageState extends State<CalendarPage> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.textPrimary,
+        color: LightColor.textPrimary,
         borderRadius: BorderRadius.circular(24),
       ),
       child: Row(
@@ -166,7 +216,7 @@ class _CalendarPageState extends State<CalendarPage> {
             children: [
               Text(
                 DateFormat('MMMM yyyy').format(_currentMonth),
-                style: GoogleFonts.inter(
+                style: GoogleFonts.mulish(
                   color: Colors.white,
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
@@ -175,8 +225,8 @@ class _CalendarPageState extends State<CalendarPage> {
               const SizedBox(height: 4),
               Text(
                 'Estimated Total: \$${total.toStringAsFixed(2)}',
-                style: GoogleFonts.inter(
-                  color: AppColors.primary,
+                style: GoogleFonts.mulish(
+                  color: LightColor.primary,
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
                 ),
@@ -210,8 +260,8 @@ class _CalendarPageState extends State<CalendarPage> {
         Center(
           child: Text(
             day,
-            style: GoogleFonts.inter(
-              color: AppColors.textTertiary,
+            style: GoogleFonts.mulish(
+              color: LightColor.textTertiary,
               fontSize: 12,
               fontWeight: FontWeight.w600,
             ),
@@ -240,7 +290,7 @@ class _CalendarPageState extends State<CalendarPage> {
           onTap: () => setState(() => _selectedDate = date),
           child: Container(
             decoration: BoxDecoration(
-              color: isSelected ? AppColors.primary : (isToday ? AppColors.surface : Colors.transparent),
+              color: isSelected ? LightColor.primary : (isToday ? LightColor.surface : Colors.transparent),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Stack(
@@ -248,10 +298,10 @@ class _CalendarPageState extends State<CalendarPage> {
               children: [
                 Text(
                   day.toString(),
-                  style: GoogleFonts.inter(
+                  style: GoogleFonts.mulish(
                     fontSize: 14,
                     fontWeight: isSelected || isToday ? FontWeight.w700 : FontWeight.w500,
-                    color: isSelected ? Colors.white : (isToday ? AppColors.primary : AppColors.textPrimary),
+                    color: isSelected ? Colors.white : (isToday ? LightColor.primary : LightColor.textPrimary),
                   ),
                 ),
                 if (hasSubs && !isSelected)
@@ -261,7 +311,7 @@ class _CalendarPageState extends State<CalendarPage> {
                       width: 4,
                       height: 4,
                       decoration: const BoxDecoration(
-                        color: AppColors.primary,
+                        color: LightColor.primary,
                         shape: BoxShape.circle,
                       ),
                     ),
@@ -278,7 +328,7 @@ class _CalendarPageState extends State<CalendarPage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppColors.surface),
+        border: Border.all(color: LightColor.surface),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.02),
@@ -309,17 +359,17 @@ class _CalendarPageState extends State<CalendarPage> {
         padding: const EdgeInsets.all(32),
         width: double.infinity,
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: LightColor.surface,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Column(
           children: [
-            const Icon(Icons.event_available, color: AppColors.textTertiary, size: 32),
+            const Icon(Icons.event_available, color: LightColor.textTertiary, size: 32),
             const SizedBox(height: 12),
             Text(
               'No scheduled charges',
-              style: GoogleFonts.inter(
-                color: AppColors.textSecondary,
+              style: GoogleFonts.mulish(
+                color: LightColor.textSecondary,
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
               ),
@@ -347,7 +397,7 @@ class _CalendarPageState extends State<CalendarPage> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppColors.surface),
+          border: Border.all(color: LightColor.surface),
         ),
         child: Row(
           children: [
@@ -355,10 +405,10 @@ class _CalendarPageState extends State<CalendarPage> {
               height: 44,
               width: 44,
               decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.1),
+                color: LightColor.primary.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(Icons.receipt_long_outlined, color: AppColors.primary, size: 22),
+              child: const Icon(Icons.receipt_long_outlined, color: LightColor.primary, size: 22),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -367,8 +417,8 @@ class _CalendarPageState extends State<CalendarPage> {
                 children: [
                   Text(
                     sub.name,
-                    style: GoogleFonts.inter(
-                      color: AppColors.textPrimary,
+                    style: GoogleFonts.mulish(
+                      color: LightColor.textPrimary,
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
                     ),
@@ -376,8 +426,8 @@ class _CalendarPageState extends State<CalendarPage> {
                   const SizedBox(height: 2),
                   Text(
                     sub.billingCycle.name.toUpperCase(),
-                    style: GoogleFonts.inter(
-                      color: AppColors.textTertiary,
+                    style: GoogleFonts.mulish(
+                      color: LightColor.textTertiary,
                       fontSize: 12,
                     ),
                   ),
@@ -386,8 +436,8 @@ class _CalendarPageState extends State<CalendarPage> {
             ),
             Text(
               '\$${sub.amount.toStringAsFixed(2)}',
-              style: GoogleFonts.inter(
-                color: AppColors.textPrimary,
+              style: GoogleFonts.mulish(
+                color: LightColor.textPrimary,
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
               ),

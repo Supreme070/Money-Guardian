@@ -1,5 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.moneyguardian.app">
+
+    <!-- Required for API calls in release builds -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+
     <application
         android:label="Money Guardian"
         android:icon="@mipmap/launcher_icon">

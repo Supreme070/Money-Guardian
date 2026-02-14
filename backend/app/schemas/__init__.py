@@ -25,6 +25,13 @@ from app.schemas.pulse import (
     PulseResponse,
     PulseStatus,
 )
+from app.schemas.webhook import (
+    PlaidWebhookBody,
+    PlaidWebhookError,
+    StripeCheckoutSessionData,
+    StripeInvoiceData,
+    StripeSubscriptionData,
+)
 
 __all__ = [
     # Auth
@@ -47,4 +54,10 @@ __all__ = [
     # Pulse
     "PulseResponse",
     "PulseStatus",
+    # Webhooks
+    "PlaidWebhookBody",
+    "PlaidWebhookError",
+    "StripeCheckoutSessionData",
+    "StripeInvoiceData",
+    "StripeSubscriptionData",
 ]

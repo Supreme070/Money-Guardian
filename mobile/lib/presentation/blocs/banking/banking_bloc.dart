@@ -1,6 +1,8 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
 
+import '../../../core/di/injection.dart';
+import '../../../core/services/analytics_service.dart';
 import '../../../data/models/bank_connection_model.dart';
 import '../../../data/repositories/banking_repository.dart';
 import 'banking_event.dart';
@@ -101,6 +103,7 @@ class BankingBloc extends Bloc<BankingEvent, BankingState> {
         provider: event.provider,
       );
 
+      getIt<AnalyticsService>().logBankConnected(provider: event.provider.name);
       emit(BankingConnectionSuccess(connection: connection));
 
       // Reload connections to update list
@@ -181,6 +184,7 @@ class BankingBloc extends Bloc<BankingEvent, BankingState> {
 
     try {
       await _bankingRepository.disconnectBank(event.connectionId);
+      getIt<AnalyticsService>().logBankDisconnected();
 
       // Reload connections
       add(const BankingLoadRequested());

@@ -1,25 +1,64 @@
-"""Internal admin endpoints for operational management.
+"""Internal admin endpoints for the admin portal.
 
-Protected by ADMIN_API_KEY header. Not exposed to mobile app.
-Intended for internal dashboards (pgAdmin, Metabase) and ops scripts.
+Protected by ``X-Admin-Key`` header.  Not exposed to the mobile app.
+Intended for the React admin dashboard at admin.moneyguardian.com.
 """
 
 import logging
-from datetime import datetime, timezone
 from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.db.session import get_db
-from app.models.bank_connection import BankConnection
-from app.models.subscription import Subscription
 from app.models.tenant import Tenant
 from app.models.user import User
+from app.schemas.admin import (
+    AdminAlertItem,
+    AdminSubscriptionItem,
+    AdminTenantDetailResponse,
+    AdminUserConnectionsResponse,
+    AdminUserDetailResponse,
+    AnalyticsOverviewResponse,
+    CeleryStatusResponse,
+    ConnectionAnalyticsResponse,
+    ErrorLogResponse,
+    PaginatedTenantsResponse,
+    PaginatedUsersResponse,
+    RevenueAnalyticsResponse,
+    SignupAnalyticsResponse,
+    SubscriptionAnalyticsResponse,
+    SystemHealthDetailResponse,
+    TenantStatusUpdate,
+    TenantStatusUpdateResponse,
+    UserStatusUpdate,
+    UserStatusUpdateResponse,
+)
+from app.services.admin_service import (
+    TenantNotFoundError,
+    UserNotFoundError,
+    get_analytics_overview,
+    get_celery_status,
+    get_connection_analytics,
+    get_error_log,
+    get_revenue_analytics,
+    get_signup_analytics,
+    get_subscription_analytics,
+    get_system_health,
+    get_tenant_detail,
+    get_user_alerts,
+    get_user_connections,
+    get_user_detail,
+    get_user_subscriptions,
+    list_tenants,
+    list_users,
+    update_tenant_status,
+    update_user_status,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +68,7 @@ router = APIRouter()
 # ---------------------------------------------------------------------------
 # Admin auth dependency
 # ---------------------------------------------------------------------------
+
 
 async def verify_admin_key(
     x_admin_key: str = Header(..., alias="X-Admin-Key"),
@@ -47,15 +87,13 @@ async def verify_admin_key(
     return x_admin_key
 
 
-AdminKeyDep = str  # resolved via Depends(verify_admin_key)
-
-
 # ---------------------------------------------------------------------------
-# Response schemas
+# Legacy inline schemas (kept for backward compatibility)
 # ---------------------------------------------------------------------------
+
 
 class AdminUserResponse(BaseModel):
-    """Admin view of a user."""
+    """Admin view of a user (legacy lookup endpoint)."""
 
     id: str
     email: str
@@ -64,8 +102,8 @@ class AdminUserResponse(BaseModel):
     tier: str
     is_active: bool
     is_email_verified: bool
-    created_at: datetime
-    last_login_at: datetime | None
+    created_at: str  # ISO string for legacy compat
+    last_login_at: str | None
 
 
 class TierOverrideRequest(BaseModel):
@@ -108,8 +146,9 @@ class ConnectionHealthResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Endpoints
+# Legacy endpoints (kept for backward compatibility)
 # ---------------------------------------------------------------------------
+
 
 @router.get("/users/lookup", response_model=AdminUserResponse)
 async def admin_lookup_user(
@@ -118,9 +157,7 @@ async def admin_lookup_user(
     _admin: str = Depends(verify_admin_key),
 ) -> AdminUserResponse:
     """Look up a user by email address."""
-    result = await db.execute(
-        select(User).where(User.email == email)
-    )
+    result = await db.execute(select(User).where(User.email == email))
     user = result.scalar_one_or_none()
 
     if not user:
@@ -129,7 +166,6 @@ async def admin_lookup_user(
             detail="User not found",
         )
 
-    # Get tenant tier
     tenant_result = await db.execute(
         select(Tenant).where(Tenant.id == user.tenant_id)
     )
@@ -142,9 +178,9 @@ async def admin_lookup_user(
         tenant_id=str(user.tenant_id),
         tier=tenant.tier if tenant else "free",
         is_active=user.is_active,
-        is_email_verified=user.is_email_verified,
-        created_at=user.created_at,
-        last_login_at=getattr(user, "last_login_at", None),
+        is_email_verified=user.is_verified,
+        created_at=user.created_at.isoformat(),
+        last_login_at=user.last_login_at.isoformat() if user.last_login_at else None,
     )
 
 
@@ -155,10 +191,8 @@ async def admin_override_tier(
     db: AsyncSession = Depends(get_db),
     _admin: str = Depends(verify_admin_key),
 ) -> TierOverrideResponse:
-    """Override a tenant's subscription tier (e.g., for support, partners)."""
-    result = await db.execute(
-        select(Tenant).where(Tenant.id == tenant_id)
-    )
+    """Override a tenant's subscription tier."""
+    result = await db.execute(select(Tenant).where(Tenant.id == tenant_id))
     tenant = result.scalar_one_or_none()
 
     if not tenant:
@@ -174,10 +208,7 @@ async def admin_override_tier(
 
     logger.info(
         "Admin tier override: tenant=%s from=%s to=%s reason=%s",
-        tenant_id,
-        previous_tier,
-        request.tier,
-        request.reason,
+        tenant_id, previous_tier, request.tier, request.reason,
     )
 
     return TierOverrideResponse(
@@ -192,60 +223,46 @@ async def admin_system_stats(
     db: AsyncSession = Depends(get_db),
     _admin: str = Depends(verify_admin_key),
 ) -> SystemStatsResponse:
-    """Get system-wide statistics."""
-    # User counts
-    total_users_result = await db.execute(select(func.count(User.id)))
-    total_users = total_users_result.scalar() or 0
+    """Get system-wide statistics (legacy)."""
+    from sqlalchemy import func
 
-    active_users_result = await db.execute(
-        select(func.count(User.id)).where(User.is_active == True)
-    )
-    active_users = active_users_result.scalar() or 0
+    from app.models.bank_connection import BankConnection
+    from app.models.subscription import Subscription
 
-    # Tenant counts
-    total_tenants_result = await db.execute(select(func.count(Tenant.id)))
-    total_tenants = total_tenants_result.scalar() or 0
+    total_users = (await db.execute(select(func.count(User.id)))).scalar() or 0
+    active_users = (await db.execute(
+        select(func.count(User.id)).where(User.is_active == True)  # noqa: E712
+    )).scalar() or 0
+    total_tenants = (await db.execute(select(func.count(Tenant.id)))).scalar() or 0
 
-    # Tier breakdown
     tier_rows = await db.execute(
         select(Tenant.tier, func.count(Tenant.id)).group_by(Tenant.tier)
     )
-    tier_breakdown: dict[str, int] = {
-        row[0]: row[1] for row in tier_rows.all()
-    }
+    tier_breakdown: dict[str, int] = {row[0]: row[1] for row in tier_rows.all()}
 
-    # Subscription count
-    total_subs_result = await db.execute(
-        select(func.count(Subscription.id)).where(
-            Subscription.deleted_at.is_(None)
-        )
-    )
-    total_subscriptions = total_subs_result.scalar() or 0
+    total_subs = (await db.execute(
+        select(func.count(Subscription.id)).where(Subscription.deleted_at.is_(None))
+    )).scalar() or 0
 
-    # Bank connection counts
-    total_bank_result = await db.execute(
-        select(func.count(BankConnection.id)).where(
-            BankConnection.deleted_at.is_(None)
-        )
-    )
-    total_bank_connections = total_bank_result.scalar() or 0
+    total_bank = (await db.execute(
+        select(func.count(BankConnection.id)).where(BankConnection.deleted_at.is_(None))
+    )).scalar() or 0
 
-    connected_bank_result = await db.execute(
+    connected_bank = (await db.execute(
         select(func.count(BankConnection.id)).where(
             BankConnection.deleted_at.is_(None),
             BankConnection.status == "connected",
         )
-    )
-    connected_bank_connections = connected_bank_result.scalar() or 0
+    )).scalar() or 0
 
     return SystemStatsResponse(
         total_users=total_users,
         active_users=active_users,
         total_tenants=total_tenants,
         tier_breakdown=tier_breakdown,
-        total_subscriptions=total_subscriptions,
-        total_bank_connections=total_bank_connections,
-        connected_bank_connections=connected_bank_connections,
+        total_subscriptions=total_subs,
+        total_bank_connections=total_bank,
+        connected_bank_connections=connected_bank,
     )
 
 
@@ -254,18 +271,17 @@ async def admin_connection_health(
     db: AsyncSession = Depends(get_db),
     _admin: str = Depends(verify_admin_key),
 ) -> ConnectionHealthResponse:
-    """Get bank connection health overview."""
-    active_connections = await db.execute(
+    """Get bank connection health overview (legacy)."""
+    from app.models.bank_connection import BankConnection
+
+    active_conns = await db.execute(
         select(BankConnection).where(BankConnection.deleted_at.is_(None))
     )
-    connections = active_connections.scalars().all()
+    connections = active_conns.scalars().all()
 
     status_counts: dict[str, int] = {
-        "connected": 0,
-        "error": 0,
-        "requires_reauth": 0,
-        "disconnected": 0,
-        "pending": 0,
+        "connected": 0, "error": 0, "requires_reauth": 0,
+        "disconnected": 0, "pending": 0,
     }
     error_list: list[dict[str, str]] = []
 
@@ -295,3 +311,235 @@ async def admin_connection_health(
         pending=status_counts["pending"],
         error_connections=error_list,
     )
+
+
+# ===========================================================================
+# NEW ADMIN PORTAL ENDPOINTS
+# ===========================================================================
+
+
+# ---------------------------------------------------------------------------
+# User Management
+# ---------------------------------------------------------------------------
+
+
+@router.get("/users", response_model=PaginatedUsersResponse)
+async def admin_list_users(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    search: str | None = Query(default=None, max_length=255),
+    tier: str | None = Query(default=None),
+    is_active: bool | None = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+    _admin: str = Depends(verify_admin_key),
+) -> PaginatedUsersResponse:
+    """Paginated user list with search and filters."""
+    return await list_users(
+        db, page=page, page_size=page_size,
+        search=search, tier_filter=tier, status_filter=is_active,
+    )
+
+
+@router.get("/users/{user_id}", response_model=AdminUserDetailResponse)
+async def admin_get_user(
+    user_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    _admin: str = Depends(verify_admin_key),
+) -> AdminUserDetailResponse:
+    """Full user detail view."""
+    try:
+        return await get_user_detail(db, user_id)
+    except UserNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+
+@router.put("/users/{user_id}/status", response_model=UserStatusUpdateResponse)
+async def admin_update_user_status(
+    user_id: UUID,
+    request: UserStatusUpdate,
+    db: AsyncSession = Depends(get_db),
+    _admin: str = Depends(verify_admin_key),
+) -> UserStatusUpdateResponse:
+    """Activate or deactivate a user."""
+    try:
+        return await update_user_status(db, user_id, request)
+    except UserNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+
+@router.get("/users/{user_id}/subscriptions", response_model=list[AdminSubscriptionItem])
+async def admin_get_user_subscriptions(
+    user_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    _admin: str = Depends(verify_admin_key),
+) -> list[AdminSubscriptionItem]:
+    """Get all subscriptions for a specific user."""
+    return await get_user_subscriptions(db, user_id)
+
+
+@router.get("/users/{user_id}/alerts", response_model=list[AdminAlertItem])
+async def admin_get_user_alerts(
+    user_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    _admin: str = Depends(verify_admin_key),
+) -> list[AdminAlertItem]:
+    """Get all alerts for a specific user."""
+    return await get_user_alerts(db, user_id)
+
+
+@router.get("/users/{user_id}/connections", response_model=AdminUserConnectionsResponse)
+async def admin_get_user_connections(
+    user_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    _admin: str = Depends(verify_admin_key),
+) -> AdminUserConnectionsResponse:
+    """Get bank + email connections for a specific user."""
+    return await get_user_connections(db, user_id)
+
+
+# ---------------------------------------------------------------------------
+# Tenant Management
+# ---------------------------------------------------------------------------
+
+
+@router.get("/tenants", response_model=PaginatedTenantsResponse)
+async def admin_list_tenants(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    tier: str | None = Query(default=None),
+    tenant_status: str | None = Query(default=None, alias="status"),
+    db: AsyncSession = Depends(get_db),
+    _admin: str = Depends(verify_admin_key),
+) -> PaginatedTenantsResponse:
+    """Paginated tenant list with filters."""
+    return await list_tenants(
+        db, page=page, page_size=page_size,
+        tier_filter=tier, status_filter=tenant_status,
+    )
+
+
+@router.get("/tenants/{tenant_id}", response_model=AdminTenantDetailResponse)
+async def admin_get_tenant(
+    tenant_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    _admin: str = Depends(verify_admin_key),
+) -> AdminTenantDetailResponse:
+    """Full tenant detail view."""
+    try:
+        return await get_tenant_detail(db, tenant_id)
+    except TenantNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Tenant not found",
+        )
+
+
+@router.put("/tenants/{tenant_id}/status", response_model=TenantStatusUpdateResponse)
+async def admin_update_tenant_status(
+    tenant_id: UUID,
+    request: TenantStatusUpdate,
+    db: AsyncSession = Depends(get_db),
+    _admin: str = Depends(verify_admin_key),
+) -> TenantStatusUpdateResponse:
+    """Change tenant status (active/suspended/deleted)."""
+    try:
+        return await update_tenant_status(db, tenant_id, request)
+    except TenantNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Tenant not found",
+        )
+
+
+# ---------------------------------------------------------------------------
+# Analytics
+# ---------------------------------------------------------------------------
+
+
+@router.get("/analytics/overview", response_model=AnalyticsOverviewResponse)
+async def admin_analytics_overview(
+    db: AsyncSession = Depends(get_db),
+    _admin: str = Depends(verify_admin_key),
+) -> AnalyticsOverviewResponse:
+    """High-level platform metrics for the dashboard."""
+    return await get_analytics_overview(db)
+
+
+@router.get("/analytics/signups", response_model=SignupAnalyticsResponse)
+async def admin_analytics_signups(
+    period: str = Query(default="daily"),
+    days: int = Query(default=30, ge=7, le=365),
+    db: AsyncSession = Depends(get_db),
+    _admin: str = Depends(verify_admin_key),
+) -> SignupAnalyticsResponse:
+    """Signup trends over time."""
+    return await get_signup_analytics(db, period=period, days=days)
+
+
+@router.get("/analytics/subscriptions", response_model=SubscriptionAnalyticsResponse)
+async def admin_analytics_subscriptions(
+    db: AsyncSession = Depends(get_db),
+    _admin: str = Depends(verify_admin_key),
+) -> SubscriptionAnalyticsResponse:
+    """Platform-wide subscription analytics."""
+    return await get_subscription_analytics(db)
+
+
+@router.get("/analytics/connections", response_model=ConnectionAnalyticsResponse)
+async def admin_analytics_connections(
+    db: AsyncSession = Depends(get_db),
+    _admin: str = Depends(verify_admin_key),
+) -> ConnectionAnalyticsResponse:
+    """Bank + email connection analytics."""
+    return await get_connection_analytics(db)
+
+
+@router.get("/analytics/revenue", response_model=RevenueAnalyticsResponse)
+async def admin_analytics_revenue(
+    db: AsyncSession = Depends(get_db),
+    _admin: str = Depends(verify_admin_key),
+) -> RevenueAnalyticsResponse:
+    """Revenue and tier analytics."""
+    return await get_revenue_analytics(db)
+
+
+# ---------------------------------------------------------------------------
+# Monitoring
+# ---------------------------------------------------------------------------
+
+
+@router.get("/monitoring/health", response_model=SystemHealthDetailResponse)
+async def admin_monitoring_health(
+    db: AsyncSession = Depends(get_db),
+    _admin: str = Depends(verify_admin_key),
+) -> SystemHealthDetailResponse:
+    """Detailed system health (DB, Redis, Celery)."""
+    return await get_system_health(db)
+
+
+@router.get("/monitoring/errors", response_model=ErrorLogResponse)
+async def admin_monitoring_errors(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    entity_type: str | None = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+    _admin: str = Depends(verify_admin_key),
+) -> ErrorLogResponse:
+    """Recent failed bank/email connections."""
+    return await get_error_log(
+        db, page=page, page_size=page_size, entity_type=entity_type,
+    )
+
+
+@router.get("/monitoring/celery", response_model=CeleryStatusResponse)
+async def admin_monitoring_celery(
+    _admin: str = Depends(verify_admin_key),
+) -> CeleryStatusResponse:
+    """Celery task queue status."""
+    return await get_celery_status()

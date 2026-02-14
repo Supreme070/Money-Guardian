@@ -74,9 +74,9 @@ class PlaidProvider(BankingProvider):
     async def _request(
         self,
         endpoint: str,
-        data: dict,
+        data: dict[str, object],
         timeout: float = 30.0,
-    ) -> dict:
+    ) -> dict[str, object]:
         """
         Make authenticated request to Plaid API.
 
@@ -392,7 +392,7 @@ class PlaidProvider(BankingProvider):
         except PlaidProviderError:
             return False
 
-    def _parse_transaction(self, tx: dict) -> TransactionInfo:
+    def _parse_transaction(self, tx: dict[str, object]) -> TransactionInfo:
         """Parse Plaid transaction into TransactionInfo."""
         amount = tx.get("amount", 0)
         # Plaid uses positive amounts for debits (money going out)

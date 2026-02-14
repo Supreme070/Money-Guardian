@@ -1,6 +1,8 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
 
+import '../../../core/di/injection.dart';
+import '../../../core/services/analytics_service.dart';
 import '../../../data/models/alert_model.dart';
 import '../../../data/repositories/alert_repository.dart';
 import 'alert_event.dart';
@@ -83,6 +85,7 @@ class AlertBloc extends Bloc<AlertEvent, AlertState> {
 
     try {
       await _alertRepository.dismissAlert(event.alertId);
+      getIt<AnalyticsService>().logAlertDismissed(alertId: event.alertId);
 
       // Remove alert from local state
       final updatedAlerts = currentState.alerts

@@ -2,21 +2,23 @@
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from app.api.deps import DbSessionDep, get_token_payload
+from app.api.deps import DbSessionDep
 from app.core.config import settings
-from app.core.security import TokenPayload, decode_token
+from app.core.security import decode_token
+from app.core.token_blacklist import blacklist_token, is_token_blacklisted
+from app.core.rate_limit import limiter
 from app.schemas.auth import (
     LoginRequest,
+    LogoutRequest,
     PasswordResetConfirm,
     PasswordResetRequest,
     RefreshRequest,
     RegisterRequest,
     TokenResponse,
 )
-from app.schemas.user import UserResponse
 from app.services.auth_service import (
     AuthService,
     EmailAlreadyExistsError,
@@ -26,6 +28,10 @@ from app.services.auth_service import (
 )
 
 router = APIRouter()
+security = HTTPBearer()
+
+# Auth rate limit string, e.g. "10/minute"
+_auth_limit = f"{settings.auth_rate_limit_per_minute}/minute"
 
 
 @router.post(
@@ -33,8 +39,10 @@ router = APIRouter()
     response_model=TokenResponse,
     status_code=status.HTTP_201_CREATED,
 )
+@limiter.limit(_auth_limit)
 async def register(
-    request: RegisterRequest,
+    request: Request,
+    body: RegisterRequest,
     db: DbSessionDep,
 ) -> TokenResponse:
     """
@@ -45,7 +53,7 @@ async def register(
     service = AuthService(db)
 
     try:
-        user, tokens = await service.register(request)
+        user, tokens = await service.register(body)
     except EmailAlreadyExistsError as e:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -64,8 +72,10 @@ async def register(
     "/login",
     response_model=TokenResponse,
 )
+@limiter.limit(_auth_limit)
 async def login(
-    request: LoginRequest,
+    request: Request,
+    body: LoginRequest,
     db: DbSessionDep,
 ) -> TokenResponse:
     """
@@ -76,7 +86,7 @@ async def login(
     service = AuthService(db)
 
     try:
-        user, tokens = await service.login(request)
+        user, tokens = await service.login(body)
     except InvalidCredentialsError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -97,16 +107,19 @@ async def login(
     response_model=TokenResponse,
 )
 async def refresh(
-    request: RefreshRequest,
+    body: RefreshRequest,
     db: DbSessionDep,
 ) -> TokenResponse:
     """
     Refresh access token using refresh token.
 
+    Checks blacklist before issuing new tokens, then blacklists
+    the old refresh token (one-time use / rotation).
+
     Returns new access and refresh tokens.
     """
     # Decode refresh token
-    payload = decode_token(request.refresh_token)
+    payload = decode_token(body.refresh_token)
 
     if payload is None:
         raise HTTPException(
@@ -119,6 +132,14 @@ async def refresh(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token type",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Check if this refresh token has been revoked (logout or already used)
+    if await is_token_blacklisted(body.refresh_token):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token has been revoked",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -136,6 +157,9 @@ async def refresh(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    # Rotate: blacklist the old refresh token so it can't be reused
+    await blacklist_token(body.refresh_token, payload.exp)
+
     return TokenResponse(
         access_token=tokens.access_token,
         refresh_token=tokens.refresh_token,
@@ -145,19 +169,37 @@ async def refresh(
 
 
 @router.post("/logout")
-async def logout() -> dict[str, str]:
+async def logout(
+    body: LogoutRequest | None = None,
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> dict[str, str]:
     """
     Logout user.
 
-    Client should discard tokens. Server-side token invalidation
-    would require a token blacklist (Redis).
+    Blacklists the access token (from Authorization header) and the
+    refresh token (from request body, if provided) in Redis so neither
+    can be reused.
     """
+    # Blacklist the access token
+    access_token = credentials.credentials
+    access_payload = decode_token(access_token)
+    if access_payload is not None:
+        await blacklist_token(access_token, access_payload.exp)
+
+    # Blacklist the refresh token if provided
+    if body is not None and body.refresh_token:
+        refresh_payload = decode_token(body.refresh_token)
+        if refresh_payload is not None:
+            await blacklist_token(body.refresh_token, refresh_payload.exp)
+
     return {"message": "Successfully logged out"}
 
 
 @router.post("/password-reset/request")
+@limiter.limit(_auth_limit)
 async def request_password_reset(
-    request: PasswordResetRequest,
+    request: Request,
+    body: PasswordResetRequest,
     db: DbSessionDep,
 ) -> dict[str, str]:
     """
@@ -169,7 +211,7 @@ async def request_password_reset(
     service = AuthService(db)
 
     try:
-        token = await service.request_password_reset(request.email)
+        token = await service.request_password_reset(body.email)
         if token:
             # Send password reset email
             from app.services.email_sender_service import EmailSenderService
@@ -177,7 +219,7 @@ async def request_password_reset(
             from app.models.user import User
 
             result = await db.execute(
-                select(User).where(User.email == request.email)
+                select(User).where(User.email == body.email)
             )
             user = result.scalar_one_or_none()
             if user:
@@ -196,8 +238,10 @@ async def request_password_reset(
 
 
 @router.post("/password-reset/confirm")
+@limiter.limit(_auth_limit)
 async def confirm_password_reset(
-    request: PasswordResetConfirm,
+    request: Request,
+    body: PasswordResetConfirm,
     db: DbSessionDep,
 ) -> dict[str, str]:
     """
@@ -209,8 +253,8 @@ async def confirm_password_reset(
 
     try:
         await service.confirm_password_reset(
-            token=request.token,
-            new_password=request.new_password,
+            token=body.token,
+            new_password=body.new_password,
         )
     except InvalidResetTokenError as e:
         raise HTTPException(
@@ -222,7 +266,9 @@ async def confirm_password_reset(
 
 
 @router.post("/verify-email")
+@limiter.limit(_auth_limit)
 async def verify_email(
+    request: Request,
     token: str,
     db: DbSessionDep,
 ) -> dict[str, str]:
@@ -246,7 +292,9 @@ async def verify_email(
 
 
 @router.post("/resend-verification")
+@limiter.limit(_auth_limit)
 async def resend_verification(
+    request: Request,
     email: str,
     db: DbSessionDep,
 ) -> dict[str, str]:

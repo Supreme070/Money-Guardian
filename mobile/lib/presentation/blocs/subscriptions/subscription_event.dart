@@ -88,6 +88,11 @@ class SubscriptionCancelRequested extends SubscriptionEvent {
   List<Object?> get props => [subscriptionId];
 }
 
+/// Load subscription history (cancelled/deleted)
+class SubscriptionHistoryLoadRequested extends SubscriptionEvent {
+  const SubscriptionHistoryLoadRequested();
+}
+
 /// Analyze subscriptions and apply AI flags
 class SubscriptionAnalyzeRequested extends SubscriptionEvent {
   const SubscriptionAnalyzeRequested();

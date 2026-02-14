@@ -1,12 +1,31 @@
-/// API configuration for Money Guardian
+/// API configuration for Money Guardian.
+///
+/// Environment selection at build time:
+///   flutter run   --dart-define=ENV=dev          (default)
+///   flutter run   --dart-define=ENV=staging
+///   flutter build --dart-define=ENV=production
+///
+/// Or override the URL directly:
+///   flutter run --dart-define=API_BASE_URL=https://custom.example.com/api/v1
 class ApiConfig {
-  /// Base URL for the API
-  /// Development: http://localhost:8000/api/v1
-  /// Production: https://api.moneyguardian.app/api/v1
-  static const String baseUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: 'http://localhost:8000/api/v1',
-  );
+  // ── Environment ───────────────────────────────────────────
+  static const String _env = String.fromEnvironment('ENV', defaultValue: 'dev');
+
+  /// Explicit override takes precedence; otherwise pick by ENV.
+  static const String _urlOverride = String.fromEnvironment('API_BASE_URL');
+
+  static const Map<String, String> _envUrls = {
+    'dev': 'http://localhost:8000/api/v1',
+    'staging': 'https://staging-api.moneyguardian.app/api/v1',
+    'production': 'https://api.moneyguardian.app/api/v1',
+  };
+
+  /// Base URL for the API — resolved once at compile time.
+  static String get baseUrl =>
+      _urlOverride.isNotEmpty ? _urlOverride : (_envUrls[_env] ?? _envUrls['dev']!);
+
+  /// True when running against production.
+  static bool get isProduction => _env == 'production';
 
   /// Request timeout in milliseconds
   static const int connectTimeout = 30000;
@@ -21,6 +40,8 @@ class ApiConfig {
   static const String authPasswordResetConfirm = '/auth/password-reset/confirm';
 
   static const String usersMe = '/users/me';
+  static const String usersChangePassword = '/users/me/password';
+  static const String usersDeleteMe = '/users/me';
   static const String usersFcmToken = '/users/me/fcm-token';
 
   static const String subscriptions = '/subscriptions';

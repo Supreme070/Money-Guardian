@@ -518,7 +518,7 @@ class StitchProvider(BankingProvider):
 
     def _map_transaction(
         self,
-        tx: dict,
+        tx: dict[str, object],
         account_id: str,
     ) -> TransactionInfo:
         """Map Stitch transaction to our schema."""

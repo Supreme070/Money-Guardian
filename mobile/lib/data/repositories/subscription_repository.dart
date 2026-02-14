@@ -103,6 +103,31 @@ class SubscriptionRepository {
     return AnalyzeResponse.fromJson(response.data!);
   }
 
+  /// Get subscription history (cancelled/inactive/deleted subscriptions)
+  Future<SubscriptionListResponse> getSubscriptionHistory() async {
+    final response = await _apiClient.get<Map<String, dynamic>>(
+      ApiConfig.subscriptions,
+      queryParameters: {
+        'include_inactive': true,
+        'include_deleted': true,
+      },
+    );
+
+    final fullList = SubscriptionListResponse.fromJson(response.data!);
+    // Filter to only inactive subs (history = no longer active)
+    final historySubs = fullList.subscriptions
+        .where((s) => !s.isActive)
+        .toList();
+
+    return SubscriptionListResponse(
+      subscriptions: historySubs,
+      totalCount: historySubs.length,
+      monthlyTotal: 0,
+      yearlyTotal: 0,
+      flaggedCount: 0,
+    );
+  }
+
   /// Get AI flag summary for current user
   Future<AIFlagSummaryResponse> getAIFlagSummary() async {
     final response = await _apiClient.get<Map<String, dynamic>>(

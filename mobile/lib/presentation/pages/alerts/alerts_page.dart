@@ -6,20 +6,9 @@ import '../../../data/models/alert_model.dart';
 import '../../../presentation/blocs/alerts/alert_bloc.dart';
 import '../../../presentation/blocs/alerts/alert_event.dart';
 import '../../../presentation/blocs/alerts/alert_state.dart';
-
-// --- Color System (Consistent) ---
-class AppColors {
-  static const Color background = Color(0xFFFFFFFF);
-  static const Color surface = Color(0xFFF5F5F7);
-  static const Color primary = Color(0xFFCEA734); 
-  static const Color textPrimary = Color(0xFF1A1A1A);
-  static const Color textSecondary = Color(0xFF666666);
-  static const Color textTertiary = Color(0xFF999999);
-  static const Color safe = Color(0xFF00E676);
-  static const Color caution = Color(0xFFFFB74D);
-  static const Color freeze = Color(0xFFCF6679);
-  static const Color divider = Color(0xFFE0E0E0);
-}
+import '../../../core/di/injection.dart';
+import '../../../core/services/analytics_service.dart';
+import '../../../src/theme/light_color.dart';
 
 class AlertsPage extends StatefulWidget {
   const AlertsPage({super.key});
@@ -34,21 +23,22 @@ class _AlertsPageState extends State<AlertsPage> {
   @override
   void initState() {
     super.initState();
+    getIt<AnalyticsService>().logScreenView(screenName: 'Alerts');
     context.read<AlertBloc>().add(const AlertLoadRequested());
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: LightColor.background,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: LightColor.background,
         elevation: 0,
         centerTitle: false,
         title: Text(
           'Alerts',
-          style: GoogleFonts.inter(
-            color: AppColors.textPrimary,
+          style: GoogleFonts.mulish(
+            color: LightColor.textPrimary,
             fontSize: 24,
             fontWeight: FontWeight.w700,
             letterSpacing: -0.5,
@@ -70,8 +60,8 @@ class _AlertsPageState extends State<AlertsPage> {
                   },
                   child: Text(
                     'Mark all read',
-                    style: GoogleFonts.inter(
-                      color: AppColors.primary,
+                    style: GoogleFonts.mulish(
+                      color: LightColor.primary,
                       fontWeight: FontWeight.w600,
                       fontSize: 14,
                     ),
@@ -87,7 +77,7 @@ class _AlertsPageState extends State<AlertsPage> {
       body: BlocBuilder<AlertBloc, AlertState>(
         builder: (context, state) {
           if (state is AlertLoading) {
-            return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+            return const Center(child: CircularProgressIndicator(color: LightColor.primary));
           }
 
           if (state is AlertError) {
@@ -154,7 +144,7 @@ class _AlertsPageState extends State<AlertsPage> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.textPrimary,
+        color: LightColor.textPrimary,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
@@ -169,12 +159,12 @@ class _AlertsPageState extends State<AlertsPage> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.2),
+              color: LightColor.primary.withOpacity(0.2),
               shape: BoxShape.circle,
             ),
             child: Icon(
               unreadCount > 0 ? Icons.notifications_active : Icons.notifications_none,
-              color: AppColors.primary,
+              color: LightColor.primary,
               size: 24,
             ),
           ),
@@ -185,7 +175,7 @@ class _AlertsPageState extends State<AlertsPage> {
               children: [
                 Text(
                   unreadCount > 0 ? '$unreadCount New Protections' : 'Shield is Active',
-                  style: GoogleFonts.inter(
+                  style: GoogleFonts.mulish(
                     color: Colors.white,
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -194,7 +184,7 @@ class _AlertsPageState extends State<AlertsPage> {
                 const SizedBox(height: 4),
                 Text(
                   unreadCount > 0 ? 'Action required for $unreadCount alerts' : 'Your money is safe and guarded',
-                  style: GoogleFonts.inter(
+                  style: GoogleFonts.mulish(
                     color: Colors.white.withOpacity(0.6),
                     fontSize: 13,
                   ),
@@ -226,15 +216,15 @@ class _AlertsPageState extends State<AlertsPage> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary : AppColors.surface,
+          color: isSelected ? LightColor.primary : LightColor.surface,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Text(
           label,
-          style: GoogleFonts.inter(
+          style: GoogleFonts.mulish(
             fontSize: 13,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-            color: isSelected ? Colors.white : AppColors.textSecondary,
+            color: isSelected ? Colors.white : LightColor.textSecondary,
           ),
         ),
       ),
@@ -255,12 +245,12 @@ class _AlertsPageState extends State<AlertsPage> {
         padding: const EdgeInsets.symmetric(vertical: 60),
         child: Column(
           children: [
-            Icon(Icons.shield_outlined, size: 64, color: AppColors.surface),
+            Icon(Icons.shield_outlined, size: 64, color: LightColor.surface),
             const SizedBox(height: 16),
             Text(
               'All Clear',
-              style: GoogleFonts.inter(
-                color: AppColors.textTertiary,
+              style: GoogleFonts.mulish(
+                color: LightColor.textTertiary,
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
               ),
@@ -268,7 +258,7 @@ class _AlertsPageState extends State<AlertsPage> {
             const SizedBox(height: 8),
             Text(
               'No threats detected at the moment.',
-              style: GoogleFonts.inter(color: AppColors.textTertiary, fontSize: 14),
+              style: GoogleFonts.mulish(color: LightColor.textTertiary, fontSize: 14),
             ),
           ],
         ),
@@ -283,11 +273,11 @@ class _AlertsPageState extends State<AlertsPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline, color: AppColors.freeze, size: 48),
+            const Icon(Icons.error_outline, color: LightColor.freeze, size: 48),
             const SizedBox(height: 16),
-            Text('Failed to load alerts', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+            Text('Failed to load alerts', style: GoogleFonts.mulish(fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
-            Text(message, textAlign: TextAlign.center, style: GoogleFonts.inter(color: AppColors.textSecondary)),
+            Text(message, textAlign: TextAlign.center, style: GoogleFonts.mulish(color: LightColor.textSecondary)),
             const SizedBox(height: 24),
             ElevatedButton(
               onPressed: () => context.read<AlertBloc>().add(const AlertLoadRequested()),
@@ -307,9 +297,9 @@ class _AlertCard extends StatelessWidget {
 
   Color _getSeverityColor() {
     switch (alert.severity) {
-      case AlertSeverity.critical: return AppColors.freeze;
-      case AlertSeverity.warning: return AppColors.caution;
-      case AlertSeverity.info: return AppColors.primary;
+      case AlertSeverity.critical: return LightColor.freeze;
+      case AlertSeverity.warning: return LightColor.caution;
+      case AlertSeverity.info: return LightColor.primary;
     }
   }
 
@@ -336,7 +326,7 @@ class _AlertCard extends StatelessWidget {
       },
       background: Container(
         decoration: BoxDecoration(
-          color: AppColors.freeze,
+          color: LightColor.freeze,
           borderRadius: BorderRadius.circular(20),
         ),
         alignment: Alignment.centerRight,
@@ -355,7 +345,7 @@ class _AlertCard extends StatelessWidget {
             color: Colors.white,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: !alert.isRead ? severityColor.withOpacity(0.3) : AppColors.surface,
+              color: !alert.isRead ? severityColor.withOpacity(0.3) : LightColor.surface,
               width: !alert.isRead ? 1.5 : 1,
             ),
             boxShadow: [
@@ -388,8 +378,8 @@ class _AlertCard extends StatelessWidget {
                       children: [
                         Text(
                           alert.title,
-                          style: GoogleFonts.inter(
-                            color: AppColors.textPrimary,
+                          style: GoogleFonts.mulish(
+                            color: LightColor.textPrimary,
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
                           ),
@@ -397,8 +387,8 @@ class _AlertCard extends StatelessWidget {
                         const SizedBox(height: 2),
                         Text(
                           '${alert.severity.name.toUpperCase()} • ${_formatRelativeTime(alert.createdAt)}',
-                          style: GoogleFonts.inter(
-                            color: AppColors.textTertiary,
+                          style: GoogleFonts.mulish(
+                            color: LightColor.textTertiary,
                             fontSize: 11,
                             fontWeight: FontWeight.w500,
                             letterSpacing: 0.5,
@@ -418,8 +408,8 @@ class _AlertCard extends StatelessWidget {
               const SizedBox(height: 12),
               Text(
                 alert.message,
-                style: GoogleFonts.inter(
-                  color: AppColors.textSecondary,
+                style: GoogleFonts.mulish(
+                  color: LightColor.textSecondary,
                   fontSize: 13,
                   height: 1.4,
                 ),
@@ -430,8 +420,8 @@ class _AlertCard extends StatelessWidget {
                   alignment: Alignment.centerRight,
                   child: Text(
                     '-\$${alert.amount!.toStringAsFixed(2)}',
-                    style: GoogleFonts.inter(
-                      color: AppColors.textPrimary,
+                    style: GoogleFonts.mulish(
+                      color: LightColor.textPrimary,
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
                     ),

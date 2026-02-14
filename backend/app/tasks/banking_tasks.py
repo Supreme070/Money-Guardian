@@ -1,4 +1,9 @@
-"""Background tasks for banking sync operations."""
+"""Background tasks for banking sync operations.
+
+Celery tasks that handle transaction syncing and balance refreshing
+for all connected bank accounts. These run on a schedule via Celery Beat
+and can also be triggered on-demand (e.g., from Plaid webhooks).
+"""
 
 import asyncio
 import logging
@@ -6,7 +11,7 @@ from uuid import UUID
 
 from celery import shared_task
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.core.config import settings
@@ -16,13 +21,20 @@ from app.services.bank_connection_service import BankConnectionService
 logger = logging.getLogger(__name__)
 
 
-def get_async_session() -> AsyncSession:
-    """Create an async database session for Celery tasks."""
-    engine = create_async_engine(settings.async_database_url, echo=False)
-    async_session = sessionmaker(
-        engine, class_=AsyncSession, expire_on_commit=False
+def _get_async_session() -> AsyncSession:
+    """Create an async session for Celery background tasks."""
+    engine = create_async_engine(
+        str(settings.database_url),
+        pool_pre_ping=True,
+        pool_size=5,
+        max_overflow=0,
     )
-    return async_session()
+    session_factory = sessionmaker(
+        engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
+    )
+    return session_factory()
 
 
 @shared_task(
@@ -36,7 +48,7 @@ def sync_bank_transactions(
     connection_id: str,
     tenant_id: str,
     user_id: str,
-) -> dict:
+) -> dict[str, str | int]:
     """
     Sync transactions for a single bank connection.
 
@@ -48,7 +60,7 @@ def sync_bank_transactions(
     Returns:
         Dict with sync results
     """
-    return asyncio.get_event_loop().run_until_complete(
+    return asyncio.run(
         _sync_bank_transactions_async(
             UUID(connection_id),
             UUID(tenant_id),
@@ -61,68 +73,66 @@ async def _sync_bank_transactions_async(
     connection_id: UUID,
     tenant_id: UUID,
     user_id: UUID,
-) -> dict:
+) -> dict[str, str | int]:
     """Async implementation of transaction sync."""
-    async with get_async_session() as db:
-        try:
-            service = BankConnectionService(db)
-            new_count = await service.sync_transactions(
-                tenant_id=tenant_id,
-                user_id=user_id,
-                connection_id=connection_id,
-            )
+    db = _get_async_session()
+    try:
+        service = BankConnectionService(db)
+        new_count = await service.sync_transactions(
+            tenant_id=tenant_id,
+            user_id=user_id,
+            connection_id=connection_id,
+        )
 
-            logger.info(
-                f"Synced {new_count} transactions for connection {connection_id}"
-            )
+        logger.info(
+            "Synced %d transactions for connection %s", new_count, connection_id
+        )
 
-            return {
-                "status": "success",
-                "connection_id": str(connection_id),
-                "new_transactions": new_count,
-            }
+        return {
+            "status": "success",
+            "connection_id": str(connection_id),
+            "new_transactions": new_count,
+        }
 
-        except Exception as e:
-            logger.error(
-                f"Failed to sync transactions for connection {connection_id}: {e}"
-            )
-            return {
-                "status": "error",
-                "connection_id": str(connection_id),
-                "error": str(e),
-            }
+    except Exception as e:
+        logger.error(
+            "Failed to sync transactions for connection %s: %s", connection_id, e
+        )
+        return {
+            "status": "error",
+            "connection_id": str(connection_id),
+            "error": str(e),
+        }
+    finally:
+        await db.close()
 
 
 @shared_task(bind=True)
-def sync_all_transactions(self) -> dict:
+def sync_all_transactions(self) -> dict[str, int | list[dict[str, str]]]:
     """
     Sync transactions for all active bank connections.
 
     Scheduled task that runs periodically to keep transactions up to date.
     """
-    return asyncio.get_event_loop().run_until_complete(
-        _sync_all_transactions_async()
-    )
+    return asyncio.run(_sync_all_transactions_async())
 
 
-async def _sync_all_transactions_async() -> dict:
+async def _sync_all_transactions_async() -> dict[str, int | list[dict[str, str]]]:
     """Async implementation of sync all transactions."""
-    async with get_async_session() as db:
-        # Get all active connections
+    db = _get_async_session()
+    try:
         result = await db.execute(
             select(BankConnection).where(
                 BankConnection.status == "connected",
                 BankConnection.deleted_at.is_(None),
             )
         )
-        connections = result.scalars().all()
+        connections = list(result.scalars().all())
 
-        results = {
-            "total": len(connections),
-            "success": 0,
-            "failed": 0,
-            "errors": [],
-        }
+        total = len(connections)
+        success_count = 0
+        failed_count = 0
+        errors: list[dict[str, str]] = []
 
         for conn in connections:
             try:
@@ -132,26 +142,31 @@ async def _sync_all_transactions_async() -> dict:
                     user_id=conn.user_id,
                     connection_id=conn.id,
                 )
-                results["success"] += 1
+                success_count += 1
                 logger.info(
-                    f"Synced {new_count} transactions for connection {conn.id}"
+                    "Synced %d transactions for connection %s", new_count, conn.id
                 )
 
             except Exception as e:
-                results["failed"] += 1
-                results["errors"].append({
+                failed_count += 1
+                errors.append({
                     "connection_id": str(conn.id),
                     "error": str(e),
                 })
-                logger.error(
-                    f"Failed to sync connection {conn.id}: {e}"
-                )
+                logger.error("Failed to sync connection %s: %s", conn.id, e)
 
         logger.info(
-            f"Completed transaction sync: {results['success']}/{results['total']} successful"
+            "Completed transaction sync: %d/%d successful", success_count, total
         )
 
-        return results
+        return {
+            "total": total,
+            "success": success_count,
+            "failed": failed_count,
+            "errors": errors,
+        }
+    finally:
+        await db.close()
 
 
 @shared_task(
@@ -164,7 +179,7 @@ def refresh_bank_balances(
     self,
     connection_id: str,
     tenant_id: str,
-) -> dict:
+) -> dict[str, str]:
     """
     Refresh balances for a single bank connection.
 
@@ -175,7 +190,7 @@ def refresh_bank_balances(
     Returns:
         Dict with refresh results
     """
-    return asyncio.get_event_loop().run_until_complete(
+    return asyncio.run(
         _refresh_bank_balances_async(
             UUID(connection_id),
             UUID(tenant_id),
@@ -186,63 +201,61 @@ def refresh_bank_balances(
 async def _refresh_bank_balances_async(
     connection_id: UUID,
     tenant_id: UUID,
-) -> dict:
+) -> dict[str, str]:
     """Async implementation of balance refresh."""
-    async with get_async_session() as db:
-        try:
-            service = BankConnectionService(db)
-            await service.sync_balances(
-                tenant_id=tenant_id,
-                connection_id=connection_id,
-            )
+    db = _get_async_session()
+    try:
+        service = BankConnectionService(db)
+        await service.sync_balances(
+            tenant_id=tenant_id,
+            connection_id=connection_id,
+        )
 
-            logger.info(f"Refreshed balances for connection {connection_id}")
+        logger.info("Refreshed balances for connection %s", connection_id)
 
-            return {
-                "status": "success",
-                "connection_id": str(connection_id),
-            }
+        return {
+            "status": "success",
+            "connection_id": str(connection_id),
+        }
 
-        except Exception as e:
-            logger.error(
-                f"Failed to refresh balances for connection {connection_id}: {e}"
-            )
-            return {
-                "status": "error",
-                "connection_id": str(connection_id),
-                "error": str(e),
-            }
+    except Exception as e:
+        logger.error(
+            "Failed to refresh balances for connection %s: %s", connection_id, e
+        )
+        return {
+            "status": "error",
+            "connection_id": str(connection_id),
+            "error": str(e),
+        }
+    finally:
+        await db.close()
 
 
 @shared_task(bind=True)
-def refresh_all_balances(self) -> dict:
+def refresh_all_balances(self) -> dict[str, int]:
     """
     Refresh balances for all active bank connections.
 
     Scheduled task that runs periodically to keep balances current.
     """
-    return asyncio.get_event_loop().run_until_complete(
-        _refresh_all_balances_async()
-    )
+    return asyncio.run(_refresh_all_balances_async())
 
 
-async def _refresh_all_balances_async() -> dict:
+async def _refresh_all_balances_async() -> dict[str, int]:
     """Async implementation of refresh all balances."""
-    async with get_async_session() as db:
-        # Get all active connections
+    db = _get_async_session()
+    try:
         result = await db.execute(
             select(BankConnection).where(
                 BankConnection.status == "connected",
                 BankConnection.deleted_at.is_(None),
             )
         )
-        connections = result.scalars().all()
+        connections = list(result.scalars().all())
 
-        results = {
-            "total": len(connections),
-            "success": 0,
-            "failed": 0,
-        }
+        total = len(connections)
+        success_count = 0
+        failed_count = 0
 
         for conn in connections:
             try:
@@ -251,14 +264,20 @@ async def _refresh_all_balances_async() -> dict:
                     tenant_id=conn.tenant_id,
                     connection_id=conn.id,
                 )
-                results["success"] += 1
+                success_count += 1
 
             except Exception as e:
-                results["failed"] += 1
-                logger.error(f"Failed to refresh balances for {conn.id}: {e}")
+                failed_count += 1
+                logger.error("Failed to refresh balances for %s: %s", conn.id, e)
 
         logger.info(
-            f"Completed balance refresh: {results['success']}/{results['total']} successful"
+            "Completed balance refresh: %d/%d successful", success_count, total
         )
 
-        return results
+        return {
+            "total": total,
+            "success": success_count,
+            "failed": failed_count,
+        }
+    finally:
+        await db.close()

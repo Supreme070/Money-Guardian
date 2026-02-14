@@ -6,19 +6,7 @@ import '../../../data/models/bank_connection_model.dart';
 import '../../../presentation/blocs/banking/banking_bloc.dart';
 import '../../../presentation/blocs/banking/banking_event.dart';
 import '../../../presentation/blocs/banking/banking_state.dart';
-
-// --- Color System (Consistent) ---
-class AppColors {
-  static const Color background = Color(0xFFFFFFFF);
-  static const Color surface = Color(0xFFF5F5F7);
-  static const Color primary = Color(0xFFCEA734); 
-  static const Color textPrimary = Color(0xFF1A1A1A);
-  static const Color textSecondary = Color(0xFF666666);
-  static const Color textTertiary = Color(0xFF999999);
-  static const Color safe = Color(0xFF00E676);
-  static const Color freeze = Color(0xFFCF6679);
-  static const Color divider = Color(0xFFE0E0E0);
-}
+import '../../../src/theme/light_color.dart';
 
 class RecurringTransactionsPage extends StatefulWidget {
   final String connectionId;
@@ -44,15 +32,15 @@ class _RecurringTransactionsPageState extends State<RecurringTransactionsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: LightColor.background,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: LightColor.background,
         elevation: 0,
         centerTitle: false,
         title: Text(
           'Detected Payments',
-          style: GoogleFonts.inter(
-            color: AppColors.textPrimary,
+          style: GoogleFonts.mulish(
+            color: LightColor.textPrimary,
             fontSize: 24,
             fontWeight: FontWeight.w700,
             letterSpacing: -0.5,
@@ -63,13 +51,13 @@ class _RecurringTransactionsPageState extends State<RecurringTransactionsPage> {
         listener: (context, state) {
           if (state is BankingConversionSuccess) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Created: ${state.subscriptionName}'), backgroundColor: AppColors.safe),
+              SnackBar(content: Text('Created: ${state.subscriptionName}'), backgroundColor: LightColor.safe),
             );
           }
         },
         builder: (context, state) {
           if (state is BankingOperationInProgress) {
-            return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+            return const Center(child: CircularProgressIndicator(color: LightColor.primary));
           }
 
           if (state is BankingRecurringLoaded) {
@@ -95,7 +83,7 @@ class _RecurringTransactionsPageState extends State<RecurringTransactionsPage> {
           
           const SizedBox(height: 32),
 
-          Text('New Detections (${state.count})', style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w600)),
+          Text('New Detections (${state.count})', style: GoogleFonts.mulish(fontSize: 18, fontWeight: FontWeight.w600)),
           const SizedBox(height: 16),
           
           if (state.recurringTransactions.isEmpty)
@@ -121,7 +109,7 @@ class _RecurringTransactionsPageState extends State<RecurringTransactionsPage> {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: AppColors.textPrimary,
+        color: LightColor.textPrimary,
         borderRadius: BorderRadius.circular(24),
       ),
       child: Column(
@@ -129,18 +117,18 @@ class _RecurringTransactionsPageState extends State<RecurringTransactionsPage> {
         children: [
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.2), shape: BoxShape.circle),
-            child: const Icon(Icons.auto_awesome, color: AppColors.primary, size: 28),
+            decoration: BoxDecoration(color: LightColor.primary.withOpacity(0.2), shape: BoxShape.circle),
+            child: const Icon(Icons.auto_awesome, color: LightColor.primary, size: 28),
           ),
           const SizedBox(height: 20),
           Text(
             'Smart Detection Active',
-            style: GoogleFonts.inter(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+            style: GoogleFonts.mulish(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 8),
           Text(
             'We found recurring patterns in ${widget.bankName}. Convert them to subscriptions to enable protection alerts.',
-            style: GoogleFonts.inter(color: Colors.white.withOpacity(0.6), fontSize: 14, height: 1.5),
+            style: GoogleFonts.mulish(color: Colors.white.withOpacity(0.6), fontSize: 14, height: 1.5),
           ),
         ],
       ),
@@ -153,9 +141,9 @@ class _RecurringTransactionsPageState extends State<RecurringTransactionsPage> {
         padding: const EdgeInsets.symmetric(vertical: 60),
         child: Column(
           children: [
-            const Icon(Icons.search_off, size: 64, color: AppColors.surface),
+            const Icon(Icons.search_off, size: 64, color: LightColor.surface),
             const SizedBox(height: 16),
-            Text('No new patterns', style: GoogleFonts.inter(color: AppColors.textTertiary, fontSize: 18, fontWeight: FontWeight.w600)),
+            Text('No new patterns', style: GoogleFonts.mulish(color: LightColor.textTertiary, fontSize: 18, fontWeight: FontWeight.w600)),
           ],
         ),
       ),
@@ -176,7 +164,7 @@ class _RecurringCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.surface),
+        border: Border.all(color: LightColor.surface),
         boxShadow: [
           BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
         ],
@@ -188,23 +176,23 @@ class _RecurringCard extends StatelessWidget {
               Container(
                 height: 48,
                 width: 48,
-                decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(12)),
-                child: const Icon(Icons.repeat, color: AppColors.textPrimary),
+                decoration: BoxDecoration(color: LightColor.surface, borderRadius: BorderRadius.circular(12)),
+                child: const Icon(Icons.repeat, color: LightColor.textPrimary),
               ),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(transaction.displayName, style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 16)),
+                    Text(transaction.displayName, style: GoogleFonts.mulish(fontWeight: FontWeight.w600, fontSize: 16)),
                     const SizedBox(height: 2),
-                    Text(transaction.frequencyDisplay, style: GoogleFonts.inter(color: AppColors.textTertiary, fontSize: 12)),
+                    Text(transaction.frequencyDisplay, style: GoogleFonts.mulish(color: LightColor.textTertiary, fontSize: 12)),
                   ],
                 ),
               ),
               Text(
                 '\$${transaction.averageAmount.toStringAsFixed(2)}',
-                style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 16),
+                style: GoogleFonts.mulish(fontWeight: FontWeight.w700, fontSize: 16),
               ),
             ],
           ),
@@ -224,12 +212,12 @@ class _RecurringCard extends StatelessWidget {
                 ));
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.surface,
-                foregroundColor: AppColors.textPrimary,
+                backgroundColor: LightColor.surface,
+                foregroundColor: LightColor.textPrimary,
                 elevation: 0,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              child: Text('Add Subscription', style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14)),
+              child: Text('Add Subscription', style: GoogleFonts.mulish(fontWeight: FontWeight.w600, fontSize: 14)),
             ),
           ),
         ],

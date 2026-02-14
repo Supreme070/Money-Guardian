@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -7,21 +8,10 @@ import '../../../data/models/bank_connection_model.dart';
 import '../../../presentation/blocs/banking/banking_bloc.dart';
 import '../../../presentation/blocs/banking/banking_event.dart';
 import '../../../presentation/blocs/banking/banking_state.dart';
+import '../../../core/di/injection.dart';
+import '../../../core/services/analytics_service.dart';
+import '../../../src/theme/light_color.dart';
 import '../transactions/recurring_transactions_page.dart';
-
-// --- Color System (Consistent) ---
-class AppColors {
-  static const Color background = Color(0xFFFFFFFF);
-  static const Color surface = Color(0xFFF5F5F7);
-  static const Color primary = Color(0xFFCEA734); 
-  static const Color textPrimary = Color(0xFF1A1A1A);
-  static const Color textSecondary = Color(0xFF666666);
-  static const Color textTertiary = Color(0xFF999999);
-  static const Color safe = Color(0xFF00E676);
-  static const Color freeze = Color(0xFFCF6679);
-  static const Color caution = Color(0xFFFFB74D);
-  static const Color divider = Color(0xFFE0E0E0);
-}
 
 class ConnectBankPage extends StatefulWidget {
   const ConnectBankPage({super.key});
@@ -32,17 +22,27 @@ class ConnectBankPage extends StatefulWidget {
 
 class _ConnectBankPageState extends State<ConnectBankPage> {
   BankingProvider _currentProvider = BankingProvider.plaid;
+  StreamSubscription<LinkSuccess>? _plaidSuccessSubscription;
+  StreamSubscription<LinkExit>? _plaidExitSubscription;
 
   @override
   void initState() {
     super.initState();
+    getIt<AnalyticsService>().logScreenView(screenName: 'ConnectBank');
     context.read<BankingBloc>().add(const BankingLoadRequested());
     _initPlaidLink();
   }
 
   void _initPlaidLink() {
-    PlaidLink.onSuccess.listen(_onPlaidSuccess);
-    PlaidLink.onExit.listen(_onPlaidExit);
+    _plaidSuccessSubscription = PlaidLink.onSuccess.listen(_onPlaidSuccess);
+    _plaidExitSubscription = PlaidLink.onExit.listen(_onPlaidExit);
+  }
+
+  @override
+  void dispose() {
+    _plaidSuccessSubscription?.cancel();
+    _plaidExitSubscription?.cancel();
+    super.dispose();
   }
 
   void _onPlaidSuccess(LinkSuccess success) {
@@ -59,7 +59,7 @@ class _ConnectBankPageState extends State<ConnectBankPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Connection failed: ${exit.error!.displayMessage ?? exit.error!.message}'),
-          backgroundColor: AppColors.freeze,
+          backgroundColor: LightColor.freeze,
         ),
       );
     }
@@ -74,15 +74,15 @@ class _ConnectBankPageState extends State<ConnectBankPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: LightColor.background,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: LightColor.background,
         elevation: 0,
         centerTitle: false,
         title: Text(
           'Bank Link',
-          style: GoogleFonts.inter(
-            color: AppColors.textPrimary,
+          style: GoogleFonts.mulish(
+            color: LightColor.titleTextColor,
             fontSize: 24,
             fontWeight: FontWeight.w700,
             letterSpacing: -0.5,
@@ -97,13 +97,14 @@ class _ConnectBankPageState extends State<ConnectBankPage> {
             PlaidLink.open();
           } else if (state is BankingConnectionSuccess) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Bank connected successfully!'), backgroundColor: AppColors.safe),
+              const SnackBar(content: Text('Bank connected successfully!'), backgroundColor: LightColor.safe),
             );
+            Navigator.pop(context, true);
           }
         },
         builder: (context, state) {
           if (state is BankingLoading) {
-            return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+            return const Center(child: CircularProgressIndicator(color: LightColor.accent));
           }
 
           if (state is BankingProRequired) {
@@ -134,13 +135,13 @@ class _ConnectBankPageState extends State<ConnectBankPage> {
           const SizedBox(height: 32),
 
           if (state.hasConnections) ...[
-            Text('Connected Institutions', style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w600)),
+            Text('Connected Institutions', style: GoogleFonts.mulish(fontSize: 18, fontWeight: FontWeight.w600)),
             const SizedBox(height: 16),
             ...state.connections.map((conn) => _buildConnectionCard(conn)),
             const SizedBox(height: 32),
           ],
 
-          Text('Link New Account', style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w600)),
+          Text('Link New Account', style: GoogleFonts.mulish(fontSize: 18, fontWeight: FontWeight.w600)),
           const SizedBox(height: 16),
           _buildProviderSelection(),
           const SizedBox(height: 40),
@@ -153,7 +154,7 @@ class _ConnectBankPageState extends State<ConnectBankPage> {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: AppColors.textPrimary,
+        color: LightColor.textPrimary,
         borderRadius: BorderRadius.circular(24),
       ),
       child: Column(
@@ -161,18 +162,18 @@ class _ConnectBankPageState extends State<ConnectBankPage> {
         children: [
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.2), shape: BoxShape.circle),
-            child: const Icon(Icons.account_balance, color: AppColors.primary, size: 28),
+            decoration: BoxDecoration(color: LightColor.primary.withOpacity(0.2), shape: BoxShape.circle),
+            child: const Icon(Icons.account_balance, color: LightColor.primary, size: 28),
           ),
           const SizedBox(height: 20),
           Text(
             'The Foundation of Protection',
-            style: GoogleFonts.inter(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+            style: GoogleFonts.mulish(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 8),
           Text(
             'Connect your bank to automatically detect subscriptions and track your real-time safe-to-spend balance.',
-            style: GoogleFonts.inter(color: Colors.white.withOpacity(0.6), fontSize: 14, height: 1.5),
+            style: GoogleFonts.mulish(color: Colors.white.withOpacity(0.6), fontSize: 14, height: 1.5),
           ),
         ],
       ),
@@ -186,7 +187,7 @@ class _ConnectBankPageState extends State<ConnectBankPage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppColors.surface),
+        border: Border.all(color: LightColor.surface),
         boxShadow: [
           BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
         ],
@@ -198,17 +199,17 @@ class _ConnectBankPageState extends State<ConnectBankPage> {
               Container(
                 height: 48,
                 width: 48,
-                decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(12)),
-                child: const Icon(Icons.account_balance_wallet, color: AppColors.textPrimary),
+                decoration: BoxDecoration(color: LightColor.surface, borderRadius: BorderRadius.circular(12)),
+                child: const Icon(Icons.account_balance_wallet, color: LightColor.textPrimary),
               ),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(connection.institutionName, style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 16)),
+                    Text(connection.institutionName, style: GoogleFonts.mulish(fontWeight: FontWeight.w600, fontSize: 16)),
                     const SizedBox(height: 4),
-                    Text('Active Connection', style: GoogleFonts.inter(color: AppColors.safe, fontSize: 12, fontWeight: FontWeight.w600)),
+                    Text('Active Connection', style: GoogleFonts.mulish(color: LightColor.safe, fontSize: 12, fontWeight: FontWeight.w600)),
                   ],
                 ),
               ),
@@ -233,9 +234,9 @@ class _ConnectBankPageState extends State<ConnectBankPage> {
                     value: 'recurring',
                     child: Row(
                       children: [
-                        const Icon(Icons.repeat, size: 20, color: AppColors.primary),
+                        const Icon(Icons.repeat, size: 20, color: LightColor.primary),
                         const SizedBox(width: 12),
-                        Text('Recurring Patterns', style: GoogleFonts.inter(fontSize: 14)),
+                        Text('Recurring Patterns', style: GoogleFonts.mulish(fontSize: 14)),
                       ],
                     ),
                   ),
@@ -243,17 +244,17 @@ class _ConnectBankPageState extends State<ConnectBankPage> {
                     value: 'disconnect',
                     child: Row(
                       children: [
-                        const Icon(Icons.link_off, size: 20, color: AppColors.freeze),
+                        const Icon(Icons.link_off, size: 20, color: LightColor.freeze),
                         const SizedBox(width: 12),
-                        Text('Disconnect', style: GoogleFonts.inter(fontSize: 14, color: AppColors.freeze)),
+                        Text('Disconnect', style: GoogleFonts.mulish(fontSize: 14, color: LightColor.freeze)),
                       ],
                     ),
                   ),
                 ],
                 child: Container(
                   padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(8)),
-                  child: const Icon(Icons.more_horiz, color: AppColors.textTertiary),
+                  decoration: BoxDecoration(color: LightColor.surface, borderRadius: BorderRadius.circular(8)),
+                  child: const Icon(Icons.more_horiz, color: LightColor.textTertiary),
                 ),
               ),
             ],
@@ -261,17 +262,17 @@ class _ConnectBankPageState extends State<ConnectBankPage> {
           if (connection.accounts.isNotEmpty) ...[
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 16),
-              child: Divider(height: 1, color: AppColors.surface),
+              child: Divider(height: 1, color: LightColor.surface),
             ),
             ...connection.accounts.map((acc) => Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(acc.name, style: GoogleFonts.inter(fontSize: 14, color: AppColors.textSecondary)),
+                  Text(acc.name, style: GoogleFonts.mulish(fontSize: 14, color: LightColor.textSecondary)),
                   Text(
                     '\$${(acc.availableBalance ?? acc.currentBalance ?? 0.0).toStringAsFixed(2)}',
-                    style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 14),
+                    style: GoogleFonts.mulish(fontWeight: FontWeight.w700, fontSize: 14),
                   ),
                 ],
               ),
@@ -301,7 +302,7 @@ class _ConnectBankPageState extends State<ConnectBankPage> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: LightColor.surface,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
@@ -317,13 +318,13 @@ class _ConnectBankPageState extends State<ConnectBankPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 15)),
+                  Text(title, style: GoogleFonts.mulish(fontWeight: FontWeight.w600, fontSize: 15)),
                   const SizedBox(height: 2),
-                  Text(subtitle, style: GoogleFonts.inter(color: AppColors.textTertiary, fontSize: 12)),
+                  Text(subtitle, style: GoogleFonts.mulish(color: LightColor.textTertiary, fontSize: 12)),
                 ],
               ),
             ),
-            const Icon(Icons.add_link, color: AppColors.primary),
+            const Icon(Icons.add_link, color: LightColor.primary),
           ],
         ),
       ),
@@ -338,19 +339,19 @@ class _ConnectBankPageState extends State<ConnectBankPage> {
         children: [
           Container(
             padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), shape: BoxShape.circle),
-            child: const Icon(Icons.lock_outline, size: 48, color: AppColors.primary),
+            decoration: BoxDecoration(color: LightColor.primary.withOpacity(0.1), shape: BoxShape.circle),
+            child: const Icon(Icons.lock_outline, size: 48, color: LightColor.primary),
           ),
           const SizedBox(height: 32),
           Text(
             'Pro Feature Only',
-            style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w700, letterSpacing: -1),
+            style: GoogleFonts.mulish(fontSize: 24, fontWeight: FontWeight.w700, letterSpacing: -1),
           ),
           const SizedBox(height: 12),
           Text(
             'Bank synchronization is available for Pro members. Unlock full automation and real-time monitoring.',
             textAlign: TextAlign.center,
-            style: GoogleFonts.inter(color: AppColors.textSecondary, height: 1.5),
+            style: GoogleFonts.mulish(color: LightColor.textSecondary, height: 1.5),
           ),
           const SizedBox(height: 40),
           SizedBox(
@@ -359,11 +360,11 @@ class _ConnectBankPageState extends State<ConnectBankPage> {
             child: ElevatedButton(
               onPressed: () => Navigator.pushNamed(context, '/pro-upgrade'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.textPrimary,
+                backgroundColor: LightColor.textPrimary,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               ),
-              child: Text('Upgrade to Pro', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+              child: Text('Upgrade to Pro', style: GoogleFonts.mulish(fontWeight: FontWeight.w600)),
             ),
           ),
         ],

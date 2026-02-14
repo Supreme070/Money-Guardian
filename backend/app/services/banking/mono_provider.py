@@ -363,7 +363,7 @@ class MonoProvider(BankingProvider):
 
     def _map_transaction(
         self,
-        tx: dict,
+        tx: dict[str, object],
         account_id: str,
     ) -> TransactionInfo:
         """Map Mono transaction to our schema."""

@@ -375,23 +375,54 @@ async def convert_recurring_to_subscription(
     }
     billing_cycle = frequency_map.get(recurring.frequency, "monthly")
 
-    # Create the subscription
-    subscription_service = SubscriptionService(db)
-    subscription = await subscription_service.create_subscription(
-        tenant_id=current_user.tenant_id,
-        user_id=current_user.user_id,
-        name=request.name or recurring.merchant_name or recurring.description,
-        amount=request.amount or float(recurring.average_amount),
-        currency=recurring.currency,
+    # Build subscription name with fallbacks
+    sub_name = request.name or recurring.merchant_name or recurring.description
+    if not sub_name:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Could not determine subscription name from recurring transaction",
+        )
+
+    # Determine amount with override
+    from decimal import Decimal
+    sub_amount = Decimal(str(request.amount)) if request.amount else recurring.average_amount
+    if sub_amount is None or sub_amount <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Could not determine subscription amount",
+        )
+
+    # Determine next billing date
+    from datetime import date as date_type, timedelta
+    next_date = request.next_billing_date or recurring.next_expected_date
+    if next_date is None:
+        next_date = date_type.today() + timedelta(days=30)
+    # If next_date is a datetime, extract the date portion
+    if hasattr(next_date, "date"):
+        next_date = next_date.date()
+
+    from app.schemas.subscription import SubscriptionCreate
+
+    subscription_create = SubscriptionCreate(
+        name=sub_name,
+        amount=sub_amount,
+        currency=recurring.currency or "USD",
         billing_cycle=request.billing_cycle or billing_cycle,
-        next_billing_date=request.next_billing_date or recurring.next_expected_date,
+        next_billing_date=next_date,
         color=request.color,
         description=request.description or f"Auto-detected from bank: {recurring.description}",
         source="bank",
-        external_id=recurring.stream_id,
+        bank_transaction_pattern=recurring.stream_id,
     )
 
-    return _map_subscription_to_response(subscription)
+    subscription_service = SubscriptionService(db)
+    subscription = await subscription_service.create(
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.user_id,
+        request=subscription_create,
+    )
+
+    return SubscriptionResponse.model_validate(subscription)
 
 
 def _map_subscription_to_response(subscription) -> SubscriptionResponse:

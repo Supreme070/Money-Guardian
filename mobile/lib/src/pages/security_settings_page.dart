@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/di/injection.dart';
+import '../../core/storage/biometric_service.dart';
 import '../../presentation/blocs/auth/auth_bloc.dart';
 import '../../presentation/blocs/auth/auth_event.dart';
 import '../../presentation/blocs/auth/auth_state.dart';
@@ -15,6 +17,41 @@ class SecuritySettingsPage extends StatefulWidget {
 }
 
 class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
+  final BiometricService _biometricService = getIt<BiometricService>();
+  bool _biometricEnabled = false;
+  bool _biometricAvailable = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBiometricState();
+  }
+
+  Future<void> _loadBiometricState() async {
+    final available = await _biometricService.canCheckBiometrics();
+    final supported = await _biometricService.isDeviceSupported();
+    final enabled = await _biometricService.isBiometricEnabled();
+    if (mounted) {
+      setState(() {
+        _biometricAvailable = available && supported;
+        _biometricEnabled = enabled;
+      });
+    }
+  }
+
+  Future<void> _toggleBiometric(bool value) async {
+    if (value) {
+      final success = await _biometricService.enableBiometric();
+      if (success && mounted) {
+        setState(() => _biometricEnabled = true);
+      }
+    } else {
+      await _biometricService.disableBiometric();
+      if (mounted) {
+        setState(() => _biometricEnabled = false);
+      }
+    }
+  }
   void _showChangePasswordDialog() {
     final currentPasswordController = TextEditingController();
     final newPasswordController = TextEditingController();
@@ -98,19 +135,12 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
                     onPressed: () {
                       if (formKey.currentState?.validate() ?? false) {
                         Navigator.pop(sheetContext);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              'Password updated successfully',
-                              style: GoogleFonts.mulish(fontWeight: FontWeight.w600),
-                            ),
-                            backgroundColor: LightColor.success,
-                            behavior: SnackBarBehavior.floating,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                        );
+                        context.read<AuthBloc>().add(
+                              AuthChangePasswordRequested(
+                                currentPassword: currentPasswordController.text,
+                                newPassword: newPasswordController.text,
+                              ),
+                            );
                       }
                     },
                     style: ElevatedButton.styleFrom(
@@ -171,9 +201,26 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
           'Delete Account?',
           style: GoogleFonts.mulish(fontWeight: FontWeight.w700),
         ),
-        content: Text(
-          'This action is permanent and cannot be undone. All your data, subscriptions, and settings will be permanently deleted.',
-          style: GoogleFonts.mulish(),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'This action is permanent and cannot be undone. All your data will be deleted:',
+              style: GoogleFonts.mulish(),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              '\u2022 All subscriptions and tracking data\n'
+              '\u2022 Bank and email connections\n'
+              '\u2022 Alert history and preferences\n'
+              '\u2022 Your account and personal information',
+              style: GoogleFonts.mulish(
+                fontSize: 13,
+                color: LightColor.subTitleTextColor,
+              ),
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -186,13 +233,14 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
           TextButton(
             onPressed: () {
               Navigator.pop(dialogContext);
-              // Logout and navigate to login
-              context.read<AuthBloc>().add(const AuthLogoutRequested());
-              Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+              context.read<AuthBloc>().add(const AuthDeleteAccountRequested());
             },
             child: Text(
               'Delete Account',
-              style: GoogleFonts.mulish(color: LightColor.freeze),
+              style: GoogleFonts.mulish(
+                color: LightColor.freeze,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ],
@@ -221,7 +269,62 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
         ),
         centerTitle: true,
       ),
-      body: BlocBuilder<AuthBloc, AuthState>(
+      body: BlocListener<AuthBloc, AuthState>(
+        listener: (context, state) {
+          if (state is AuthPasswordChanged) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  state.message,
+                  style: GoogleFonts.mulish(fontWeight: FontWeight.w600),
+                ),
+                backgroundColor: LightColor.success,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            );
+          } else if (state is AuthError) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  state.message,
+                  style: GoogleFonts.mulish(fontWeight: FontWeight.w600),
+                ),
+                backgroundColor: LightColor.freeze,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            );
+          } else if (state is AuthDeletingAccount) {
+            showDialog(
+              context: context,
+              barrierDismissible: false,
+              builder: (_) => const Center(child: CircularProgressIndicator()),
+            );
+          } else if (state is AuthUnauthenticated) {
+            Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+          } else if (state is AuthDeleteAccountError) {
+            Navigator.of(context).pop(); // dismiss loading
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Failed to delete account: ${state.message}',
+                  style: GoogleFonts.mulish(fontWeight: FontWeight.w600),
+                ),
+                backgroundColor: LightColor.freeze,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            );
+          }
+        },
+        child: BlocBuilder<AuthBloc, AuthState>(
         builder: (context, state) {
           if (state is! AuthAuthenticated) {
             return const Center(child: CircularProgressIndicator());
@@ -251,23 +354,12 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
                 _buildSecurityTile(
                   icon: Icons.fingerprint_rounded,
                   title: 'Biometric Login',
-                  subtitle: 'Use Face ID or fingerprint to sign in',
+                  subtitle: _biometricAvailable
+                      ? 'Use Face ID or fingerprint to sign in'
+                      : 'Not available on this device',
                   trailing: Switch.adaptive(
-                    value: false,
-                    onChanged: (value) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            'Biometric login requires device setup',
-                            style: GoogleFonts.mulish(fontWeight: FontWeight.w500),
-                          ),
-                          behavior: SnackBarBehavior.floating,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                      );
-                    },
+                    value: _biometricEnabled,
+                    onChanged: _biometricAvailable ? _toggleBiometric : null,
                     activeColor: LightColor.accent,
                   ),
                 ),
@@ -343,6 +435,7 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
             ),
           );
         },
+      ),
       ),
     );
   }

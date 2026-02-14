@@ -16,6 +16,12 @@ from app.core.config import settings
 from app.models.tenant import Tenant
 from app.models.user import User
 from app.models.bank_connection import BankConnection
+from app.schemas.webhook import (
+    PlaidWebhookBody,
+    StripeCheckoutSessionData,
+    StripeInvoiceData,
+    StripeSubscriptionData,
+)
 from app.services.bank_connection_service import BankConnectionService
 
 logger = logging.getLogger(__name__)
@@ -47,11 +53,11 @@ async def stripe_webhook(
     Receive Stripe webhook events.
 
     Handles:
-    - checkout.session.completed → Activate Pro subscription
-    - customer.subscription.updated → Update tier/expiry
-    - customer.subscription.deleted → Downgrade to free
-    - invoice.paid → Extend subscription
-    - invoice.payment_failed → Mark payment issue
+    - checkout.session.completed -> Activate Pro subscription
+    - customer.subscription.updated -> Update tier/expiry
+    - customer.subscription.deleted -> Downgrade to free
+    - invoice.paid -> Extend subscription
+    - invoice.payment_failed -> Mark payment issue
     """
     if not settings.stripe_webhook_secret:
         raise HTTPException(
@@ -81,20 +87,25 @@ async def stripe_webhook(
         )
 
     event_type: str = event["type"]
-    event_data: dict = event["data"]["object"]
+    raw_data: dict[str, object] = event["data"]["object"]
 
     logger.info("Stripe webhook received: %s", event_type)
 
     if event_type == StripeEventType.CHECKOUT_COMPLETED:
-        await _handle_checkout_completed(db, event_data)
+        data = StripeCheckoutSessionData.model_validate(raw_data)
+        await _handle_checkout_completed(db, data)
     elif event_type == StripeEventType.SUBSCRIPTION_UPDATED:
-        await _handle_subscription_updated(db, event_data)
+        data = StripeSubscriptionData.model_validate(raw_data)
+        await _handle_subscription_updated(db, data)
     elif event_type == StripeEventType.SUBSCRIPTION_DELETED:
-        await _handle_subscription_deleted(db, event_data)
+        data = StripeSubscriptionData.model_validate(raw_data)
+        await _handle_subscription_deleted(db, data)
     elif event_type == StripeEventType.INVOICE_PAID:
-        await _handle_invoice_paid(db, event_data)
+        data = StripeInvoiceData.model_validate(raw_data)
+        await _handle_invoice_paid(db, data)
     elif event_type == StripeEventType.INVOICE_FAILED:
-        await _handle_invoice_failed(db, event_data)
+        data = StripeInvoiceData.model_validate(raw_data)
+        await _handle_invoice_failed(db, data)
     else:
         logger.debug("Unhandled Stripe event type: %s", event_type)
 
@@ -103,63 +114,55 @@ async def stripe_webhook(
 
 async def _handle_checkout_completed(
     db: AsyncSession,
-    data: dict,
+    data: StripeCheckoutSessionData,
 ) -> None:
     """Activate Pro subscription after successful checkout."""
-    customer_id: str | None = data.get("customer")
-    subscription_id: str | None = data.get("subscription")
-    client_reference_id: str | None = data.get("client_reference_id")  # tenant_id
-
-    if not client_reference_id:
+    if not data.client_reference_id:
         logger.error("Checkout completed without client_reference_id (tenant_id)")
         return
 
     # Update tenant
     await db.execute(
         update(Tenant)
-        .where(Tenant.id == client_reference_id)
+        .where(Tenant.id == data.client_reference_id)
         .values(
             tier="pro",
-            stripe_customer_id=customer_id,
+            stripe_customer_id=data.customer,
         )
     )
 
     # Update user subscription tier
     await db.execute(
         update(User)
-        .where(User.tenant_id == client_reference_id)
+        .where(User.tenant_id == data.client_reference_id)
         .values(subscription_tier="pro")
     )
 
     await db.commit()
-    logger.info("Pro activated for tenant %s", client_reference_id)
+    logger.info("Pro activated for tenant %s", data.client_reference_id)
 
 
 async def _handle_subscription_updated(
     db: AsyncSession,
-    data: dict,
+    data: StripeSubscriptionData,
 ) -> None:
     """Handle subscription plan changes."""
-    customer_id: str | None = data.get("customer")
-    status_value: str | None = data.get("status")
-    current_period_end: int | None = data.get("current_period_end")
-
-    if not customer_id:
+    if not data.customer:
         return
 
     result = await db.execute(
-        select(Tenant).where(Tenant.stripe_customer_id == customer_id)
+        select(Tenant).where(Tenant.stripe_customer_id == data.customer)
     )
     tenant = result.scalar_one_or_none()
     if not tenant:
-        logger.warning("Stripe customer %s not found in tenants", customer_id)
+        logger.warning("Stripe customer %s not found in tenants", data.customer)
         return
 
     # Map Stripe status to tier
-    tier = "pro" if status_value in ("active", "trialing") else "free"
+    tier = "pro" if data.status in ("active", "trialing") else "free"
     expires_at = (
-        datetime.fromtimestamp(current_period_end, tz=timezone.utc)
-        if current_period_end
+        datetime.fromtimestamp(data.current_period_end, tz=timezone.utc)
+        if data.current_period_end
         else None
     )
 
@@ -178,15 +181,14 @@ async def _handle_subscription_updated(
 
 async def _handle_subscription_deleted(
     db: AsyncSession,
-    data: dict,
+    data: StripeSubscriptionData,
 ) -> None:
     """Downgrade to free when subscription is cancelled."""
-    customer_id: str | None = data.get("customer")
-    if not customer_id:
+    if not data.customer:
         return
 
     result = await db.execute(
-        select(Tenant).where(Tenant.stripe_customer_id == customer_id)
+        select(Tenant).where(Tenant.stripe_customer_id == data.customer)
     )
     tenant = result.scalar_one_or_none()
     if not tenant:
@@ -207,24 +209,22 @@ async def _handle_subscription_deleted(
 
 async def _handle_invoice_paid(
     db: AsyncSession,
-    data: dict,
+    data: StripeInvoiceData,
 ) -> None:
     """Confirm payment - extend subscription period."""
-    customer_id: str | None = data.get("customer")
-    if not customer_id:
+    if not data.customer:
         return
 
     # Subscription is active - Stripe subscription.updated handles the period
-    logger.info("Invoice paid for customer %s", customer_id)
+    logger.info("Invoice paid for customer %s", data.customer)
 
 
 async def _handle_invoice_failed(
     db: AsyncSession,
-    data: dict,
+    data: StripeInvoiceData,
 ) -> None:
     """Handle failed payment - Stripe retries automatically."""
-    customer_id: str | None = data.get("customer")
-    logger.warning("Invoice payment failed for customer %s", customer_id)
+    logger.warning("Invoice payment failed for customer %s", data.customer)
 
 
 # ---------------------------------------------------------------------------
@@ -249,6 +249,105 @@ class PlaidWebhookCategory:
     ITEM: str = "ITEM"
 
 
+async def _verify_plaid_webhook(request: Request, body_bytes: bytes) -> PlaidWebhookBody:
+    """
+    Verify Plaid webhook signature using their JWT verification.
+
+    Plaid signs webhooks with a JWT in the 'Plaid-Verification' header.
+    The JWT is signed with a key from Plaid's JWKS endpoint, and the body
+    hash is included in the JWT claims.
+
+    Args:
+        request: The FastAPI request object.
+        body_bytes: The raw request body bytes.
+
+    Returns:
+        The parsed and validated PlaidWebhookBody.
+
+    Raises:
+        HTTPException: If verification fails.
+    """
+    import hashlib
+    import time
+    from jose import jwt as jose_jwt, JWTError as JoseJWTError
+    import httpx
+
+    verification_header = request.headers.get("plaid-verification")
+
+    if not verification_header:
+        # In development/sandbox, Plaid may not send verification headers.
+        # Accept unverified webhooks only in non-production environments.
+        if settings.environment == "production":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Missing Plaid-Verification header",
+            )
+        return PlaidWebhookBody.model_validate_json(body_bytes)
+
+    try:
+        # Step 1: Decode the JWT header to get the key ID (kid)
+        unverified_header = jose_jwt.get_unverified_header(verification_header)
+        kid: str = unverified_header["kid"]
+
+        # Step 2: Fetch Plaid's JWKS (JSON Web Key Set) to get the public key
+        plaid_host = (
+            "sandbox" if settings.plaid_environment == "sandbox" else "production"
+        )
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            jwks_response = await client.post(
+                f"https://{plaid_host}.plaid.com/webhook_verification_key/get",
+                json={
+                    "client_id": settings.plaid_client_id,
+                    "secret": settings.plaid_secret,
+                    "key_id": kid,
+                },
+            )
+            jwks_response.raise_for_status()
+            jwks_data: dict[str, object] = jwks_response.json()
+            key = jwks_data["key"]
+
+        # Step 3: Verify the JWT and extract claims
+        claims: dict[str, object] = jose_jwt.decode(
+            verification_header,
+            key,
+            algorithms=["ES256"],
+        )
+
+        # Step 4: Check that the JWT hasn't expired (5 min window)
+        issued_at = int(claims.get("iat", 0))
+        if abs(time.time() - issued_at) > 300:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Plaid webhook JWT expired",
+            )
+
+        # Step 5: Verify body hash matches
+        expected_hash = str(claims.get("request_body_sha256", ""))
+        actual_hash = hashlib.sha256(body_bytes).hexdigest()
+        if expected_hash != actual_hash:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Plaid webhook body hash mismatch",
+            )
+
+    except JoseJWTError as e:
+        logger.warning("Plaid webhook JWT verification failed: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Plaid webhook signature verification failed",
+        )
+    except httpx.HTTPError as e:
+        logger.error("Failed to fetch Plaid JWKS: %s", e)
+        # In production, reject if we can't verify. In dev, allow through.
+        if settings.environment == "production":
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Cannot verify Plaid webhook at this time",
+            )
+
+    return PlaidWebhookBody.model_validate_json(body_bytes)
+
+
 @router.post("/plaid", status_code=status.HTTP_200_OK)
 async def plaid_webhook(
     request: Request,
@@ -257,37 +356,41 @@ async def plaid_webhook(
     """
     Receive Plaid webhook events.
 
+    Verifies the Plaid-Verification JWT signature before processing.
+
     Handles:
     - TRANSACTIONS: Trigger transaction sync
     - ITEM errors: Mark connection as errored
     - ITEM pending expiration: Alert user to re-authenticate
     """
-    body = await request.json()
+    body_bytes = await request.body()
+    body: PlaidWebhookBody = await _verify_plaid_webhook(request, body_bytes)
 
-    webhook_type: str = body.get("webhook_type", "")
-    webhook_code: str = body.get("webhook_code", "")
-    item_id: str | None = body.get("item_id")
+    logger.info(
+        "Plaid webhook received: %s/%s for item %s",
+        body.webhook_type,
+        body.webhook_code,
+        body.item_id,
+    )
 
-    logger.info("Plaid webhook received: %s/%s for item %s", webhook_type, webhook_code, item_id)
-
-    if not item_id:
+    if not body.item_id:
         return {"status": "ok"}
 
     # Find the connection by item_id
     result = await db.execute(
         select(BankConnection).where(
-            BankConnection.item_id == item_id,
+            BankConnection.item_id == body.item_id,
             BankConnection.deleted_at.is_(None),
         )
     )
     connection = result.scalar_one_or_none()
 
     if not connection:
-        logger.warning("Plaid webhook for unknown item_id: %s", item_id)
+        logger.warning("Plaid webhook for unknown item_id: %s", body.item_id)
         return {"status": "ok"}
 
-    if webhook_type == PlaidWebhookCategory.TRANSACTIONS:
-        if webhook_code in (
+    if body.webhook_type == PlaidWebhookCategory.TRANSACTIONS:
+        if body.webhook_code in (
             PlaidWebhookType.TRANSACTIONS_DEFAULT_UPDATE,
             PlaidWebhookType.TRANSACTIONS_INITIAL_UPDATE,
             PlaidWebhookType.TRANSACTIONS_HISTORICAL_UPDATE,
@@ -296,7 +399,12 @@ async def plaid_webhook(
             # Trigger async transaction sync
             try:
                 from app.tasks.banking_tasks import sync_bank_transactions
-                sync_bank_transactions.delay(str(connection.id))
+
+                sync_bank_transactions.delay(
+                    str(connection.id),
+                    str(connection.tenant_id),
+                    str(connection.user_id),
+                )
             except ImportError:
                 # Celery not available, sync inline
                 service = BankConnectionService(db)
@@ -306,12 +414,12 @@ async def plaid_webhook(
                     connection_id=connection.id,
                 )
 
-    elif webhook_type == PlaidWebhookCategory.ITEM:
-        if webhook_code == PlaidWebhookType.ITEM_ERROR:
-            error = body.get("error", {})
+    elif body.webhook_type == PlaidWebhookCategory.ITEM:
+        if body.webhook_code == PlaidWebhookType.ITEM_ERROR:
+            error = body.error
             connection.status = "error"
-            connection.error_code = error.get("error_code", "UNKNOWN")
-            connection.error_message = error.get("error_message", "Unknown error")
+            connection.error_code = error.error_code if error else "UNKNOWN"
+            connection.error_message = error.error_message if error else "Unknown error"
             await db.commit()
             logger.warning(
                 "Plaid item error for connection %s: %s",
@@ -319,9 +427,11 @@ async def plaid_webhook(
                 connection.error_code,
             )
 
-        elif webhook_code == PlaidWebhookType.ITEM_PENDING_EXPIRATION:
+        elif body.webhook_code == PlaidWebhookType.ITEM_PENDING_EXPIRATION:
             connection.status = "pending_expiration"
-            connection.error_message = "Bank connection will expire soon. Please re-authenticate."
+            connection.error_message = (
+                "Bank connection will expire soon. Please re-authenticate."
+            )
             await db.commit()
             logger.info(
                 "Plaid item pending expiration for connection %s",

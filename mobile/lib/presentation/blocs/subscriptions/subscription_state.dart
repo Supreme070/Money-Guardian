@@ -23,6 +23,7 @@ class SubscriptionLoading extends SubscriptionState {
 /// Subscriptions loaded successfully
 class SubscriptionLoaded extends SubscriptionState {
   final List<SubscriptionModel> subscriptions;
+  final List<SubscriptionModel> historySubscriptions;
   final int totalCount;
   final double monthlyTotal;
   final double yearlyTotal;
@@ -30,6 +31,7 @@ class SubscriptionLoaded extends SubscriptionState {
 
   const SubscriptionLoaded({
     required this.subscriptions,
+    this.historySubscriptions = const [],
     required this.totalCount,
     required this.monthlyTotal,
     required this.yearlyTotal,
@@ -39,6 +41,7 @@ class SubscriptionLoaded extends SubscriptionState {
   @override
   List<Object?> get props => [
         subscriptions,
+        historySubscriptions,
         totalCount,
         monthlyTotal,
         yearlyTotal,
@@ -47,6 +50,7 @@ class SubscriptionLoaded extends SubscriptionState {
 
   SubscriptionLoaded copyWith({
     List<SubscriptionModel>? subscriptions,
+    List<SubscriptionModel>? historySubscriptions,
     int? totalCount,
     double? monthlyTotal,
     double? yearlyTotal,
@@ -54,6 +58,7 @@ class SubscriptionLoaded extends SubscriptionState {
   }) {
     return SubscriptionLoaded(
       subscriptions: subscriptions ?? this.subscriptions,
+      historySubscriptions: historySubscriptions ?? this.historySubscriptions,
       totalCount: totalCount ?? this.totalCount,
       monthlyTotal: monthlyTotal ?? this.monthlyTotal,
       yearlyTotal: yearlyTotal ?? this.yearlyTotal,

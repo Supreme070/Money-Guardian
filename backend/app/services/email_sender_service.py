@@ -232,14 +232,27 @@ class EmailSenderService:
         plain_body: str,
         html_body: str,
     ) -> bool:
-        """Send an email via SMTP."""
+        """Send an email via SMTP.
+
+        Returns True only if the email was actually sent.
+        Returns False if SMTP is not configured or sending fails.
+        """
         if not settings.smtp_user or not settings.smtp_password:
-            logger.info(
-                "SMTP not configured. Would send to %s: subject='%s'",
-                to_email,
-                subject,
-            )
-            return True  # Return True in dev so flow continues
+            if settings.environment == "production":
+                logger.error(
+                    "SMTP not configured in production. "
+                    "Email NOT sent to %s: subject='%s'",
+                    to_email,
+                    subject,
+                )
+            else:
+                logger.warning(
+                    "SMTP not configured (dev). "
+                    "Email NOT sent to %s: subject='%s'",
+                    to_email,
+                    subject,
+                )
+            return False
 
         try:
             import aiosmtplib
@@ -262,6 +275,13 @@ class EmailSenderService:
 
             logger.info("Email sent to %s: %s", to_email, subject)
             return True
+
+        except ImportError:
+            logger.error(
+                "aiosmtplib package not installed. Email NOT sent to %s",
+                to_email,
+            )
+            return False
 
         except Exception as e:
             logger.error("Failed to send email to %s: %s", to_email, e)

@@ -101,6 +101,24 @@ class AuthRepository {
     await _secureStorage.clearAuthData();
   }
 
+  /// Change password for authenticated user
+  Future<MessageResponse> changePassword(ChangePasswordRequest request) async {
+    final response = await _apiClient.put<Map<String, dynamic>>(
+      ApiConfig.usersChangePassword,
+      data: request.toJson(),
+    );
+    return MessageResponse.fromJson(response.data!);
+  }
+
+  /// Delete user account and all associated data
+  Future<MessageResponse> deleteAccount() async {
+    final response = await _apiClient.delete<Map<String, dynamic>>(
+      ApiConfig.usersDeleteMe,
+    );
+    await _secureStorage.clearAuthData();
+    return MessageResponse.fromJson(response.data!);
+  }
+
   /// Request password reset
   /// Returns a message regardless of whether email exists (security)
   Future<MessageResponse> requestPasswordReset(

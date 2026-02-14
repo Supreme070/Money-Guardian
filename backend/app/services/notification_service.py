@@ -1,6 +1,6 @@
 """Push notification service using Firebase Admin SDK."""
 
-from datetime import datetime
+import logging
 from typing import Literal
 from uuid import UUID
 
@@ -9,6 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.models.user import User
+
+logger = logging.getLogger(__name__)
 
 # Notification types
 NotificationType = Literal[
@@ -40,8 +42,8 @@ class NotificationPayload:
         self.alert_id = alert_id
         self.data = data or {}
 
-    def to_fcm_message(self, fcm_token: str) -> dict[str, object]:
-        """Convert to FCM message format."""
+    def build_data_payload(self) -> dict[str, str]:
+        """Build FCM data payload as a flat string dict."""
         data_payload: dict[str, str] = {
             "type": self.notification_type,
             "click_action": "FLUTTER_NOTIFICATION_CLICK",
@@ -54,29 +56,7 @@ class NotificationPayload:
         if self.data:
             data_payload.update(self.data)
 
-        return {
-            "token": fcm_token,
-            "notification": {
-                "title": self.title,
-                "body": self.body,
-            },
-            "data": data_payload,
-            "android": {
-                "priority": "high",
-                "notification": {
-                    "channel_id": "money_guardian_alerts",
-                    "sound": "default",
-                },
-            },
-            "apns": {
-                "payload": {
-                    "aps": {
-                        "sound": "default",
-                        "badge": 1,
-                    },
-                },
-            },
-        }
+        return data_payload
 
 
 class NotificationService:
@@ -88,7 +68,7 @@ class NotificationService:
     """
 
     _initialized: bool = False
-    _firebase_app: object | None = None
+    _firebase_available: bool = False
 
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
@@ -106,7 +86,8 @@ class NotificationService:
 
             # Check if already initialized
             try:
-                cls._firebase_app = firebase_admin.get_app()
+                firebase_admin.get_app()
+                cls._firebase_available = True
                 cls._initialized = True
                 return
             except ValueError:
@@ -115,15 +96,24 @@ class NotificationService:
             # Initialize with credentials
             if settings.firebase_credentials_path:
                 cred = credentials.Certificate(settings.firebase_credentials_path)
-                cls._firebase_app = firebase_admin.initialize_app(cred)
-                cls._initialized = True
+                firebase_admin.initialize_app(cred)
+                cls._firebase_available = True
+                logger.info("Firebase Admin SDK initialized successfully")
             else:
-                # No credentials - notifications will be logged but not sent
-                cls._initialized = True
+                logger.warning(
+                    "FIREBASE_CREDENTIALS_PATH not set. "
+                    "Push notifications will not be sent."
+                )
+                cls._firebase_available = False
 
         except ImportError:
-            # firebase_admin not installed
-            cls._initialized = True
+            logger.warning(
+                "firebase_admin package not installed. "
+                "Push notifications will not be sent."
+            )
+            cls._firebase_available = False
+
+        cls._initialized = True
 
     async def send_to_user(
         self,
@@ -191,17 +181,25 @@ class NotificationService:
         payload: NotificationPayload,
     ) -> bool:
         """Send FCM message to a specific token."""
+        if not self._firebase_available:
+            logger.debug(
+                "Firebase not available. Skipping notification: %s",
+                payload.title,
+            )
+            return False
+
         try:
             from firebase_admin import messaging
 
-            message_dict = payload.to_fcm_message(fcm_token)
+            data_payload = payload.build_data_payload()
+
             message = messaging.Message(
-                token=message_dict["token"],
+                token=fcm_token,
                 notification=messaging.Notification(
                     title=payload.title,
                     body=payload.body,
                 ),
-                data=message_dict["data"],
+                data=data_payload,
                 android=messaging.AndroidConfig(
                     priority="high",
                     notification=messaging.AndroidNotification(
@@ -219,16 +217,16 @@ class NotificationService:
                 ),
             )
 
-            response = messaging.send(message)
-            return response is not None
-
-        except ImportError:
-            # firebase_admin not installed - log instead
-            print(f"[NOTIFICATION] Would send to {fcm_token[:20]}...: {payload.title}")
+            response: str = messaging.send(message)
+            logger.info(
+                "FCM notification sent: %s (message_id=%s)",
+                payload.title,
+                response,
+            )
             return True
 
         except Exception as e:
-            print(f"[NOTIFICATION ERROR] Failed to send: {e}")
+            logger.error("Failed to send FCM notification: %s", e)
             return False
 
     # Convenience methods for common notification types

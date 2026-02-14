@@ -504,7 +504,7 @@ async def convert_email_to_subscription(
         next_billing_date=next_billing_date if isinstance(next_billing_date, date) else next_billing_date.date(),
         color=request.color,
         description=request.description,
-        source="gmail",  # Source is from email
+        source=connection.provider if connection.provider in ("gmail", "outlook", "yahoo") else "email",
     )
 
     subscription = await subscription_service.create(

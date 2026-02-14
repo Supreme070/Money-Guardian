@@ -1,7 +1,9 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
 
+import '../../../core/di/injection.dart';
 import '../../../core/error/exceptions.dart';
+import '../../../core/services/analytics_service.dart';
 import '../../../data/repositories/subscription_repository.dart';
 import 'subscription_event.dart';
 import 'subscription_state.dart';
@@ -14,6 +16,7 @@ class SubscriptionBloc extends Bloc<SubscriptionEvent, SubscriptionState> {
   SubscriptionBloc(this._subscriptionRepository)
       : super(const SubscriptionInitial()) {
     on<SubscriptionLoadRequested>(_onLoadRequested);
+    on<SubscriptionHistoryLoadRequested>(_onHistoryLoadRequested);
     on<SubscriptionCreateRequested>(_onCreateRequested);
     on<SubscriptionUpdateRequested>(_onUpdateRequested);
     on<SubscriptionDeleteRequested>(_onDeleteRequested);
@@ -48,6 +51,23 @@ class SubscriptionBloc extends Bloc<SubscriptionEvent, SubscriptionState> {
     }
   }
 
+  Future<void> _onHistoryLoadRequested(
+    SubscriptionHistoryLoadRequested event,
+    Emitter<SubscriptionState> emit,
+  ) async {
+    final currentState = state;
+    if (currentState is! SubscriptionLoaded) return;
+
+    try {
+      final historyResponse = await _subscriptionRepository.getSubscriptionHistory();
+      emit(currentState.copyWith(
+        historySubscriptions: historyResponse.subscriptions,
+      ));
+    } catch (e) {
+      // Silently fail - history is not critical
+    }
+  }
+
   Future<void> _onCreateRequested(
     SubscriptionCreateRequested event,
     Emitter<SubscriptionState> emit,
@@ -59,6 +79,11 @@ class SubscriptionBloc extends Bloc<SubscriptionEvent, SubscriptionState> {
 
     try {
       await _subscriptionRepository.createSubscription(event.request);
+      getIt<AnalyticsService>().logSubscriptionAdded(
+        merchantName: event.request.name,
+        amount: event.request.amount,
+        billingCycle: event.request.billingCycle.name,
+      );
       // Reload subscriptions to get updated totals
       add(const SubscriptionLoadRequested());
     } on TierLimitException catch (e) {
@@ -114,6 +139,7 @@ class SubscriptionBloc extends Bloc<SubscriptionEvent, SubscriptionState> {
 
     try {
       await _subscriptionRepository.deleteSubscription(event.subscriptionId);
+      getIt<AnalyticsService>().logSubscriptionDeleted(subscriptionId: event.subscriptionId);
       // Reload subscriptions
       add(const SubscriptionLoadRequested());
     } catch (e) {
@@ -135,6 +161,7 @@ class SubscriptionBloc extends Bloc<SubscriptionEvent, SubscriptionState> {
 
     try {
       await _subscriptionRepository.pauseSubscription(event.subscriptionId);
+      getIt<AnalyticsService>().logSubscriptionPaused(subscriptionId: event.subscriptionId);
       add(const SubscriptionLoadRequested());
     } catch (e) {
       emit(SubscriptionError(message: e.toString()));
@@ -155,6 +182,7 @@ class SubscriptionBloc extends Bloc<SubscriptionEvent, SubscriptionState> {
 
     try {
       await _subscriptionRepository.resumeSubscription(event.subscriptionId);
+      getIt<AnalyticsService>().logSubscriptionResumed(subscriptionId: event.subscriptionId);
       add(const SubscriptionLoadRequested());
     } catch (e) {
       emit(SubscriptionError(message: e.toString()));
@@ -175,6 +203,7 @@ class SubscriptionBloc extends Bloc<SubscriptionEvent, SubscriptionState> {
 
     try {
       await _subscriptionRepository.cancelSubscription(event.subscriptionId);
+      getIt<AnalyticsService>().logSubscriptionCancelled(subscriptionId: event.subscriptionId);
       add(const SubscriptionLoadRequested());
     } catch (e) {
       emit(SubscriptionError(message: e.toString()));
@@ -198,6 +227,8 @@ class SubscriptionBloc extends Bloc<SubscriptionEvent, SubscriptionState> {
 
     try {
       final response = await _subscriptionRepository.analyzeSubscriptions();
+
+      getIt<AnalyticsService>().logSubscriptionAnalyzed(flaggedCount: response.flaggedCount);
 
       if (loadedState != null) {
         emit(SubscriptionAnalysisComplete(
