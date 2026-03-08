@@ -78,6 +78,11 @@ def _validate_production_settings() -> None:
                 "FATAL: jwt_secret_key must be changed from default in production. "
                 "Set the JWT_SECRET_KEY environment variable."
             )
+        if not settings.encryption_master_key:
+            raise RuntimeError(
+                "FATAL: ENCRYPTION_MASTER_KEY must be set in production. "
+                "Generate with: python -c \"import secrets; print(secrets.token_urlsafe(32))\""
+            )
         if settings.cors_origins == ["*"]:
             logger.warning(
                 "CORS origins set to wildcard (*) in production. "

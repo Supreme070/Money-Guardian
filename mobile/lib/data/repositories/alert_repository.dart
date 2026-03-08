@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:injectable/injectable.dart';
 
+import '../../core/cache/cache_manager.dart';
 import '../../core/config/api_config.dart';
 import '../../core/network/api_client.dart';
 import '../models/alert_model.dart';
@@ -9,10 +12,16 @@ import '../models/alert_model.dart';
 @lazySingleton
 class AlertRepository {
   final ApiClient _apiClient;
+  final CacheManager _cacheManager;
 
-  AlertRepository(this._apiClient);
+  static const String _cacheBox = 'alerts_cache';
+  static const String _listKey = 'alerts_list';
+  static const int _ttlMinutes = 5;
 
-  /// Get all alerts for the current user
+  AlertRepository(this._apiClient, this._cacheManager);
+
+  /// Get all alerts for the current user.
+  /// Returns cached data on network failure.
   Future<AlertListResponse> getAlerts({
     bool? unreadOnly,
     String? severity,
@@ -21,12 +30,35 @@ class AlertRepository {
     if (unreadOnly != null && unreadOnly) queryParams['unread_only'] = true;
     if (severity != null) queryParams['severity'] = severity;
 
-    final response = await _apiClient.get<Map<String, dynamic>>(
-      ApiConfig.alerts,
-      queryParameters: queryParams.isNotEmpty ? queryParams : null,
-    );
+    final bool useCache = queryParams.isEmpty;
 
-    return AlertListResponse.fromJson(response.data!);
+    try {
+      final response = await _apiClient.get<Map<String, dynamic>>(
+        ApiConfig.alerts,
+        queryParameters: queryParams.isNotEmpty ? queryParams : null,
+      );
+
+      final result = AlertListResponse.fromJson(response.data!);
+      if (useCache) {
+        await _cacheManager.put(
+          _cacheBox,
+          _listKey,
+          jsonEncode(response.data),
+          ttlMinutes: _ttlMinutes,
+        );
+      }
+      return result;
+    } catch (e) {
+      if (useCache) {
+        final cached = await _cacheManager.get(_cacheBox, _listKey);
+        if (cached != null) {
+          return AlertListResponse.fromJson(
+            jsonDecode(cached) as Map<String, dynamic>,
+          );
+        }
+      }
+      rethrow;
+    }
   }
 
   /// Get a single alert by ID
@@ -44,6 +76,7 @@ class AlertRepository {
       ApiConfig.alertsMarkRead,
       data: AlertMarkReadRequest(alertIds: alertIds).toJson(),
     );
+    await _cacheManager.clear(_cacheBox);
   }
 
   /// Dismiss an alert
@@ -51,6 +84,7 @@ class AlertRepository {
     await _apiClient.post<void>(
       ApiConfig.alertDismiss(alertId),
     );
+    await _cacheManager.clear(_cacheBox);
   }
 
   /// Dismiss multiple alerts

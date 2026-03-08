@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:injectable/injectable.dart';
 
+import '../../core/cache/cache_manager.dart';
 import '../../core/config/api_config.dart';
 import '../../core/network/api_client.dart';
 import '../models/subscription_model.dart';
@@ -9,10 +12,16 @@ import '../models/subscription_model.dart';
 @lazySingleton
 class SubscriptionRepository {
   final ApiClient _apiClient;
+  final CacheManager _cacheManager;
 
-  SubscriptionRepository(this._apiClient);
+  static const String _cacheBox = 'subscriptions_cache';
+  static const String _listKey = 'subscriptions_list';
+  static const int _ttlMinutes = 15;
 
-  /// Get all subscriptions for the current user
+  SubscriptionRepository(this._apiClient, this._cacheManager);
+
+  /// Get all subscriptions for the current user.
+  /// Returns cached data on network failure.
   Future<SubscriptionListResponse> getSubscriptions({
     bool? isActive,
     String? aiFlag,
@@ -21,12 +30,36 @@ class SubscriptionRepository {
     if (isActive != null) queryParams['is_active'] = isActive;
     if (aiFlag != null) queryParams['ai_flag'] = aiFlag;
 
-    final response = await _apiClient.get<Map<String, dynamic>>(
-      ApiConfig.subscriptions,
-      queryParameters: queryParams.isNotEmpty ? queryParams : null,
-    );
+    // Only cache the default (unfiltered) list
+    final bool useCache = queryParams.isEmpty;
 
-    return SubscriptionListResponse.fromJson(response.data!);
+    try {
+      final response = await _apiClient.get<Map<String, dynamic>>(
+        ApiConfig.subscriptions,
+        queryParameters: queryParams.isNotEmpty ? queryParams : null,
+      );
+
+      final result = SubscriptionListResponse.fromJson(response.data!);
+      if (useCache) {
+        await _cacheManager.put(
+          _cacheBox,
+          _listKey,
+          jsonEncode(response.data),
+          ttlMinutes: _ttlMinutes,
+        );
+      }
+      return result;
+    } catch (e) {
+      if (useCache) {
+        final cached = await _cacheManager.get(_cacheBox, _listKey);
+        if (cached != null) {
+          return SubscriptionListResponse.fromJson(
+            jsonDecode(cached) as Map<String, dynamic>,
+          );
+        }
+      }
+      rethrow;
+    }
   }
 
   /// Get a single subscription by ID
@@ -47,6 +80,8 @@ class SubscriptionRepository {
       data: request.toJson(),
     );
 
+    // Invalidate list cache after mutation
+    await _cacheManager.clear(_cacheBox);
     return SubscriptionModel.fromJson(response.data!);
   }
 
@@ -60,6 +95,7 @@ class SubscriptionRepository {
       data: request.toJson(),
     );
 
+    await _cacheManager.clear(_cacheBox);
     return SubscriptionModel.fromJson(response.data!);
   }
 
@@ -68,6 +104,7 @@ class SubscriptionRepository {
     await _apiClient.delete<void>(
       ApiConfig.subscriptionById(id),
     );
+    await _cacheManager.clear(_cacheBox);
   }
 
   /// Pause a subscription

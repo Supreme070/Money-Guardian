@@ -27,18 +27,31 @@ class AppSecurity {
       return;
     }
 
+    // Read signing cert hash and Apple Team ID from build args.
+    // Pass via: --dart-define=SIGNING_CERT_HASH=<base64-sha256>
+    //           --dart-define=APPLE_TEAM_ID=<team-id>
+    const signingHash = String.fromEnvironment('SIGNING_CERT_HASH');
+    const appleTeamId = String.fromEnvironment('APPLE_TEAM_ID');
+
+    if (signingHash.isEmpty) {
+      debugPrint('[AppSecurity] WARNING: SIGNING_CERT_HASH not set — '
+          'tamper detection disabled');
+    }
+    if (appleTeamId.isEmpty) {
+      debugPrint('[AppSecurity] WARNING: APPLE_TEAM_ID not set — '
+          'iOS integrity checks disabled');
+    }
+
     final config = TalsecConfig(
       androidConfig: AndroidConfig(
         packageName: 'com.moneyguardian.app',
         signingCertHashes: [
-          // TODO: Replace with your release signing cert SHA-256 hash
-          // Run: keytool -list -v -keystore your-keystore.jks
-          // Take the SHA-256 fingerprint and convert to Base64
+          if (signingHash.isNotEmpty) signingHash,
         ],
       ),
       iosConfig: IOSConfig(
         bundleIds: ['com.moneyguardian.app'],
-        teamId: '', // TODO: Set your Apple Developer Team ID
+        teamId: appleTeamId,
       ),
       watcherMail: 'security@moneyguardian.app',
       isProd: true,

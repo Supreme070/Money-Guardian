@@ -10,8 +10,12 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 
 from app.core.config import settings
+from app.core.redis_dedup import is_duplicate
 from app.models.email_connection import EmailConnection
 from app.services.email_connection_service import EmailConnectionService
+
+_SCAN_DEDUP_PREFIX = "mg:task_dedup:scan_email:"
+_SCAN_DEDUP_TTL = 600  # 10 minutes
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +71,13 @@ async def _scan_email_connection_async(
     max_emails: int,
 ) -> dict:
     """Async implementation of email scan."""
+    # Dedup: skip if same connection was scanned in the last 10 minutes
+    if await is_duplicate(
+        str(connection_id), prefix=_SCAN_DEDUP_PREFIX, ttl=_SCAN_DEDUP_TTL
+    ):
+        logger.info("Skipping duplicate email scan for connection %s", connection_id)
+        return {"status": "skipped", "reason": "duplicate", "connection_id": str(connection_id)}
+
     async with get_async_session() as db:
         try:
             service = EmailConnectionService(db)

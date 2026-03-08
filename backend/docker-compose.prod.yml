@@ -23,6 +23,8 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
+    networks:
+      - internal
     deploy:
       resources:
         limits:
@@ -34,19 +36,26 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  # Redis Cache
+  # Redis Cache (password-protected)
   redis:
     image: redis:7-alpine
     container_name: mg_prod_redis
-    command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 128mb
+      --maxmemory-policy allkeys-lru
+      --requirepass ${REDIS_PASSWORD:?Set REDIS_PASSWORD}
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
     restart: unless-stopped
+    networks:
+      - internal
     deploy:
       resources:
         limits:
@@ -69,7 +78,7 @@ services:
       - .env
     environment:
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-money_guardian}
-      - REDIS_URL=redis://redis:6379/0
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
       - ENVIRONMENT=production
     depends_on:
       db:
@@ -77,6 +86,9 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
+    networks:
+      - internal
+      - web
     deploy:
       resources:
         limits:
@@ -99,7 +111,7 @@ services:
       - .env
     environment:
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-money_guardian}
-      - REDIS_URL=redis://redis:6379/0
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
       - ENVIRONMENT=production
     depends_on:
       db:
@@ -108,6 +120,8 @@ services:
         condition: service_healthy
     command: celery -A app.core.celery_app worker --loglevel=warning --concurrency=2
     restart: unless-stopped
+    networks:
+      - internal
     deploy:
       resources:
         limits:
@@ -130,7 +144,7 @@ services:
       - .env
     environment:
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-money_guardian}
-      - REDIS_URL=redis://redis:6379/0
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
       - ENVIRONMENT=production
     depends_on:
       db:
@@ -139,6 +153,8 @@ services:
         condition: service_healthy
     command: celery -A app.core.celery_app beat --loglevel=warning
     restart: unless-stopped
+    networks:
+      - internal
     deploy:
       resources:
         limits:
@@ -156,11 +172,11 @@ services:
       context: ../admin
       dockerfile: Dockerfile
     container_name: mg_prod_admin
-    ports:
-      - "${ADMIN_PORT:-3000}:80"
     depends_on:
       - api
     restart: unless-stopped
+    networks:
+      - web
     deploy:
       resources:
         limits:
@@ -172,7 +188,7 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  # Nginx reverse proxy (TLS termination, rate limiting, static files)
+  # Nginx reverse proxy (TLS termination, rate limiting)
   nginx:
     image: nginx:1.25-alpine
     container_name: mg_prod_nginx
@@ -181,10 +197,14 @@ services:
       - "${NGINX_HTTPS_PORT:-443}:443"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./certbot/conf:/etc/nginx/ssl:ro
+      - ./certbot/www:/var/www/certbot:ro
     depends_on:
       - api
+      - admin
     restart: unless-stopped
+    networks:
+      - web
     deploy:
       resources:
         limits:
@@ -195,6 +215,14 @@ services:
       options:
         max-size: "20m"
         max-file: "3"
+
+networks:
+  # Internal network: db + redis (not exposed to internet)
+  internal:
+    driver: bridge
+  # Web network: nginx + api + admin (nginx is the only entry point)
+  web:
+    driver: bridge
 
 volumes:
   postgres_data:

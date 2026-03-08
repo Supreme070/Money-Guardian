@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:injectable/injectable.dart';
 
+import '../../core/cache/cache_manager.dart';
 import '../../core/config/api_config.dart';
 import '../../core/network/api_client.dart';
 import '../models/pulse_model.dart';
@@ -9,17 +12,39 @@ import '../models/pulse_model.dart';
 @lazySingleton
 class PulseRepository {
   final ApiClient _apiClient;
+  final CacheManager _cacheManager;
 
-  PulseRepository(this._apiClient);
+  static const String _cacheBox = 'pulse_cache';
+  static const String _pulseKey = 'pulse';
+  static const int _ttlMinutes = 5;
 
-  /// Get the daily pulse for the current user
-  /// This is the main home screen data
+  PulseRepository(this._apiClient, this._cacheManager);
+
+  /// Get the daily pulse for the current user.
+  /// Returns cached data on network failure.
   Future<PulseResponse> getPulse() async {
-    final response = await _apiClient.get<Map<String, dynamic>>(
-      ApiConfig.pulse,
-    );
+    try {
+      final response = await _apiClient.get<Map<String, dynamic>>(
+        ApiConfig.pulse,
+      );
 
-    return PulseResponse.fromJson(response.data!);
+      final pulse = PulseResponse.fromJson(response.data!);
+      await _cacheManager.put(
+        _cacheBox,
+        _pulseKey,
+        jsonEncode(response.data),
+        ttlMinutes: _ttlMinutes,
+      );
+      return pulse;
+    } catch (e) {
+      final cached = await _cacheManager.get(_cacheBox, _pulseKey);
+      if (cached != null) {
+        return PulseResponse.fromJson(
+          jsonDecode(cached) as Map<String, dynamic>,
+        );
+      }
+      rethrow;
+    }
   }
 
   /// Get detailed pulse breakdown
@@ -38,6 +63,13 @@ class PulseRepository {
       '${ApiConfig.pulse}/refresh',
     );
 
-    return PulseResponse.fromJson(response.data!);
+    final pulse = PulseResponse.fromJson(response.data!);
+    await _cacheManager.put(
+      _cacheBox,
+      _pulseKey,
+      jsonEncode(response.data),
+      ttlMinutes: _ttlMinutes,
+    );
+    return pulse;
   }
 }

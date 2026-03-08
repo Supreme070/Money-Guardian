@@ -29,6 +29,7 @@ import '../../presentation/blocs/email_scanning/email_scanning_bloc.dart'
 import '../../presentation/blocs/pulse/pulse_bloc.dart' as _i97;
 import '../../presentation/blocs/purchase/purchase_bloc.dart' as _i936;
 import '../../presentation/blocs/subscriptions/subscription_bloc.dart' as _i250;
+import '../cache/cache_manager.dart' as _i326;
 import '../network/api_client.dart' as _i557;
 import '../network/connectivity_service.dart' as _i491;
 import '../network/network_info.dart' as _i932;
@@ -58,6 +59,7 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.lazySingleton<_i361.Dio>(() => registerModule.dio);
     gh.lazySingleton<_i895.Connectivity>(() => registerModule.connectivity);
+    gh.lazySingleton<_i326.CacheManager>(() => _i326.CacheManager());
     gh.lazySingleton<_i491.ConnectivityService>(
         () => _i491.ConnectivityService());
     gh.lazySingleton<_i762.BiometricService>(() => _i762.BiometricService());
@@ -81,13 +83,22 @@ extension GetItInjectableX on _i174.GetIt {
     gh.factory<_i141.AuthBloc>(
         () => _i141.AuthBloc(gh<_i481.AuthRepository>()));
     gh.lazySingleton<_i167.SubscriptionRepository>(
-        () => _i167.SubscriptionRepository(gh<_i557.ApiClient>()));
-    gh.lazySingleton<_i697.PulseRepository>(
-        () => _i697.PulseRepository(gh<_i557.ApiClient>()));
+        () => _i167.SubscriptionRepository(
+              gh<_i557.ApiClient>(),
+              gh<_i326.CacheManager>(),
+            ));
+    gh.lazySingleton<_i697.PulseRepository>(() => _i697.PulseRepository(
+          gh<_i557.ApiClient>(),
+          gh<_i326.CacheManager>(),
+        ));
+    gh.lazySingleton<_i652.AlertRepository>(() => _i652.AlertRepository(
+          gh<_i557.ApiClient>(),
+          gh<_i326.CacheManager>(),
+        ));
+    gh.factory<_i97.PulseBloc>(
+        () => _i97.PulseBloc(gh<_i697.PulseRepository>()));
     gh.lazySingleton<_i748.EmailRepository>(
         () => _i748.EmailRepository(gh<_i557.ApiClient>()));
-    gh.lazySingleton<_i652.AlertRepository>(
-        () => _i652.AlertRepository(gh<_i557.ApiClient>()));
     gh.lazySingleton<_i496.BankingRepository>(
         () => _i496.BankingRepository(gh<_i557.ApiClient>()));
     gh.factory<_i802.AlertBloc>(
@@ -98,8 +109,6 @@ extension GetItInjectableX on _i174.GetIt {
         () => _i250.SubscriptionBloc(gh<_i167.SubscriptionRepository>()));
     gh.factory<_i388.EmailScanningBloc>(
         () => _i388.EmailScanningBloc(gh<_i748.EmailRepository>()));
-    gh.factory<_i97.PulseBloc>(
-        () => _i97.PulseBloc(gh<_i697.PulseRepository>()));
     return this;
   }
 }

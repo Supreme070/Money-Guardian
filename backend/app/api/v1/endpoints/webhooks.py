@@ -4,9 +4,6 @@ These endpoints receive external events and process them asynchronously.
 """
 
 import logging
-import threading
-import time
-from collections import OrderedDict
 from datetime import datetime, timezone
 
 import stripe
@@ -25,59 +22,17 @@ from app.schemas.webhook import (
     StripeInvoiceData,
     StripeSubscriptionData,
 )
+from app.core.redis_dedup import is_duplicate, mark_processed
 from app.services.bank_connection_service import BankConnectionService
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-
-# ---------------------------------------------------------------------------
-# Webhook Idempotency Store
-# ---------------------------------------------------------------------------
-
-_IDEMPOTENCY_MAX_SIZE = 10_000
-_IDEMPOTENCY_TTL_SECONDS = 86_400  # 24 hours
-
-_idem_lock = threading.Lock()
-
-
-class _IdempotencyStore:
-    """Thread-safe in-memory store tracking processed webhook event IDs.
-
-    Stores event_id -> timestamp so entries can be evicted after TTL.
-    Uses an OrderedDict for LRU-style eviction when max size is reached.
-    """
-
-    def __init__(
-        self, max_size: int = _IDEMPOTENCY_MAX_SIZE, ttl: int = _IDEMPOTENCY_TTL_SECONDS
-    ) -> None:
-        self._max_size = max_size
-        self._ttl = ttl
-        self._store: OrderedDict[str, float] = OrderedDict()
-
-    def is_duplicate(self, event_id: str) -> bool:
-        """Return True if this event_id was already processed."""
-        with _idem_lock:
-            if event_id in self._store:
-                ts = self._store[event_id]
-                if time.time() - ts < self._ttl:
-                    return True
-                # Expired entry, remove it
-                del self._store[event_id]
-            return False
-
-    def mark_processed(self, event_id: str) -> None:
-        """Record an event_id as processed."""
-        with _idem_lock:
-            self._store[event_id] = time.time()
-            self._store.move_to_end(event_id)
-            # Evict oldest entries if over capacity
-            while len(self._store) > self._max_size:
-                self._store.popitem(last=False)
-
-
-_webhook_idempotency = _IdempotencyStore()
+_STRIPE_DEDUP_PREFIX = "mg:webhook_dedup:stripe:"
+_PLAID_DEDUP_PREFIX = "mg:webhook_dedup:plaid:"
+_STRIPE_DEDUP_TTL = 86_400  # 24 hours
+_PLAID_DEDUP_TTL = 300  # 5 minutes (matches Plaid's retry window)
 
 
 # ---------------------------------------------------------------------------
@@ -141,8 +96,8 @@ async def stripe_webhook(
     event_type: str = event["type"]
     raw_data: dict[str, object] = event["data"]["object"]
 
-    # Idempotency: skip already-processed events
-    if _webhook_idempotency.is_duplicate(event_id):
+    # Idempotency: skip already-processed events (Redis-backed)
+    if await is_duplicate(event_id, prefix=_STRIPE_DEDUP_PREFIX, ttl=_STRIPE_DEDUP_TTL):
         logger.info("Stripe webhook already processed: %s (%s)", event_id, event_type)
         return {"status": "ok"}
 
@@ -167,7 +122,7 @@ async def stripe_webhook(
         logger.debug("Unhandled Stripe event type: %s", event_type)
 
     # Mark event as processed for idempotency
-    _webhook_idempotency.mark_processed(event_id)
+    await mark_processed(event_id, prefix=_STRIPE_DEDUP_PREFIX, ttl=_STRIPE_DEDUP_TTL)
 
     return {"status": "ok"}
 
@@ -428,6 +383,12 @@ async def plaid_webhook(
     )
 
     if not body.item_id:
+        return {"status": "ok"}
+
+    # Idempotency: dedup by item_id + webhook_code (Redis-backed)
+    plaid_dedup_key = f"{body.item_id}:{body.webhook_code}"
+    if await is_duplicate(plaid_dedup_key, prefix=_PLAID_DEDUP_PREFIX, ttl=_PLAID_DEDUP_TTL):
+        logger.info("Plaid webhook already processed: %s", plaid_dedup_key)
         return {"status": "ok"}
 
     # Find the connection by item_id

@@ -15,8 +15,12 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.core.config import settings
+from app.core.redis_dedup import is_duplicate
 from app.models.bank_connection import BankConnection
 from app.services.bank_connection_service import BankConnectionService
+
+_SYNC_DEDUP_PREFIX = "mg:task_dedup:sync_txns:"
+_SYNC_DEDUP_TTL = 300  # 5 minutes
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +79,14 @@ async def _sync_bank_transactions_async(
     user_id: UUID,
 ) -> dict[str, str | int]:
     """Async implementation of transaction sync."""
+    # Dedup: skip if same connection was synced in the last 5 minutes
+    # (protects against duplicate webhook triggers from Plaid)
+    if await is_duplicate(
+        str(connection_id), prefix=_SYNC_DEDUP_PREFIX, ttl=_SYNC_DEDUP_TTL
+    ):
+        logger.info("Skipping duplicate sync for connection %s", connection_id)
+        return {"status": "skipped", "reason": "duplicate", "connection_id": str(connection_id)}
+
     db = _get_async_session()
     try:
         service = BankConnectionService(db)

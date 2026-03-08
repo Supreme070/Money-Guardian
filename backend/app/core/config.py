@@ -96,10 +96,6 @@ class Settings(BaseSettings):
     stripe_webhook_secret: str | None = None
     stripe_pro_price_id: str | None = None
 
-    # Encryption (for Plaid/banking tokens at rest)
-    # MUST be different from jwt_secret_key in production.
-    encryption_master_key: str | None = None
-
     # Sentry (error monitoring)
     sentry_dsn: str | None = None
     sentry_traces_sample_rate: float = 0.1

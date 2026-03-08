@@ -6,6 +6,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
 import 'core/di/injection.dart';
@@ -63,6 +64,9 @@ void main() async {
   } catch (e) {
     debugPrint('Firebase not available: $e');
   }
+
+  // Initialize Hive for offline caching (before DI so CacheManager is ready)
+  await Hive.initFlutter();
 
   await configureDependencies();
 
