@@ -85,9 +85,10 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
 
     app.dependency_overrides[get_db] = override_get_db
 
-    # Mock Redis-based token blacklist and rate limiter
-    mock_limiter = MagicMock()
-    mock_limiter.limit.return_value = lambda f: f  # no-op decorator
+    # Disable rate limiting entirely in tests
+    from app.core.rate_limit import limiter as real_limiter
+    real_limiter.enabled = False
+    app.state.limiter = real_limiter
 
     with (
         patch("app.api.deps.is_token_blacklisted", new_callable=AsyncMock, return_value=False),
@@ -95,7 +96,6 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
         patch("app.core.token_blacklist.is_token_blacklisted", new_callable=AsyncMock, return_value=False),
         patch("app.api.v1.endpoints.auth.blacklist_token", new_callable=AsyncMock),
         patch("app.api.v1.endpoints.auth.is_token_blacklisted", new_callable=AsyncMock, return_value=False),
-        patch("app.core.rate_limit.limiter", mock_limiter),
     ):
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as c:

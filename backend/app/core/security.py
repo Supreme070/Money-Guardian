@@ -1,5 +1,6 @@
 """Security utilities for authentication and authorization."""
 
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Literal
 from uuid import UUID
@@ -13,6 +14,8 @@ from pydantic import BaseModel
 
 from app.core.config import settings
 
+logger = logging.getLogger(__name__)
+
 
 # -----------------------------------------------------------------------------
 # Token Encryption (for sensitive data like Plaid access tokens)
@@ -20,12 +23,23 @@ from app.core.config import settings
 
 def _get_encryption_key() -> bytes:
     """
-    Derive a Fernet-compatible key from JWT secret.
+    Derive a Fernet-compatible key from ENCRYPTION_MASTER_KEY.
+
+    Falls back to JWT secret if ENCRYPTION_MASTER_KEY is not set,
+    with a warning log. In production, a separate key MUST be configured.
 
     Fernet requires a 32-byte base64-encoded key.
-    We derive this from the JWT secret using SHA-256.
+    We derive this from the master key using SHA-256.
     """
-    key_bytes = hashlib.sha256(settings.jwt_secret_key.encode()).digest()
+    if settings.encryption_master_key:
+        source_key = settings.encryption_master_key
+    else:
+        logger.warning(
+            "ENCRYPTION_MASTER_KEY not set — falling back to JWT secret. "
+            "Set ENCRYPTION_MASTER_KEY in production for proper key separation."
+        )
+        source_key = settings.jwt_secret_key
+    key_bytes = hashlib.sha256(source_key.encode()).digest()
     return base64.urlsafe_b64encode(key_bytes)
 
 

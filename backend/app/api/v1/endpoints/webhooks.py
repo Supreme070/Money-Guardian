@@ -4,6 +4,9 @@ These endpoints receive external events and process them asynchronously.
 """
 
 import logging
+import threading
+import time
+from collections import OrderedDict
 from datetime import datetime, timezone
 
 import stripe
@@ -27,6 +30,54 @@ from app.services.bank_connection_service import BankConnectionService
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+# ---------------------------------------------------------------------------
+# Webhook Idempotency Store
+# ---------------------------------------------------------------------------
+
+_IDEMPOTENCY_MAX_SIZE = 10_000
+_IDEMPOTENCY_TTL_SECONDS = 86_400  # 24 hours
+
+_idem_lock = threading.Lock()
+
+
+class _IdempotencyStore:
+    """Thread-safe in-memory store tracking processed webhook event IDs.
+
+    Stores event_id -> timestamp so entries can be evicted after TTL.
+    Uses an OrderedDict for LRU-style eviction when max size is reached.
+    """
+
+    def __init__(
+        self, max_size: int = _IDEMPOTENCY_MAX_SIZE, ttl: int = _IDEMPOTENCY_TTL_SECONDS
+    ) -> None:
+        self._max_size = max_size
+        self._ttl = ttl
+        self._store: OrderedDict[str, float] = OrderedDict()
+
+    def is_duplicate(self, event_id: str) -> bool:
+        """Return True if this event_id was already processed."""
+        with _idem_lock:
+            if event_id in self._store:
+                ts = self._store[event_id]
+                if time.time() - ts < self._ttl:
+                    return True
+                # Expired entry, remove it
+                del self._store[event_id]
+            return False
+
+    def mark_processed(self, event_id: str) -> None:
+        """Record an event_id as processed."""
+        with _idem_lock:
+            self._store[event_id] = time.time()
+            self._store.move_to_end(event_id)
+            # Evict oldest entries if over capacity
+            while len(self._store) > self._max_size:
+                self._store.popitem(last=False)
+
+
+_webhook_idempotency = _IdempotencyStore()
 
 
 # ---------------------------------------------------------------------------
@@ -86,10 +137,16 @@ async def stripe_webhook(
             detail="Invalid payload",
         )
 
+    event_id: str = event["id"]
     event_type: str = event["type"]
     raw_data: dict[str, object] = event["data"]["object"]
 
-    logger.info("Stripe webhook received: %s", event_type)
+    # Idempotency: skip already-processed events
+    if _webhook_idempotency.is_duplicate(event_id):
+        logger.info("Stripe webhook already processed: %s (%s)", event_id, event_type)
+        return {"status": "ok"}
+
+    logger.info("Stripe webhook received: %s (%s)", event_type, event_id)
 
     if event_type == StripeEventType.CHECKOUT_COMPLETED:
         data = StripeCheckoutSessionData.model_validate(raw_data)
@@ -108,6 +165,9 @@ async def stripe_webhook(
         await _handle_invoice_failed(db, data)
     else:
         logger.debug("Unhandled Stripe event type: %s", event_type)
+
+    # Mark event as processed for idempotency
+    _webhook_idempotency.mark_processed(event_id)
 
     return {"status": "ok"}
 
@@ -275,14 +335,10 @@ async def _verify_plaid_webhook(request: Request, body_bytes: bytes) -> PlaidWeb
     verification_header = request.headers.get("plaid-verification")
 
     if not verification_header:
-        # In development/sandbox, Plaid may not send verification headers.
-        # Accept unverified webhooks only in non-production environments.
-        if settings.environment == "production":
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Missing Plaid-Verification header",
-            )
-        return PlaidWebhookBody.model_validate_json(body_bytes)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Missing Plaid-Verification header",
+        )
 
     try:
         # Step 1: Decode the JWT header to get the key ID (kid)
@@ -338,12 +394,10 @@ async def _verify_plaid_webhook(request: Request, body_bytes: bytes) -> PlaidWeb
         )
     except httpx.HTTPError as e:
         logger.error("Failed to fetch Plaid JWKS: %s", e)
-        # In production, reject if we can't verify. In dev, allow through.
-        if settings.environment == "production":
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Cannot verify Plaid webhook at this time",
-            )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Cannot verify Plaid webhook at this time",
+        )
 
     return PlaidWebhookBody.model_validate_json(body_bytes)
 

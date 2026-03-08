@@ -2,6 +2,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
 
 import '../../../core/di/injection.dart';
+import '../../../core/error/exceptions.dart';
 import '../../../core/services/analytics_service.dart';
 import '../../../data/models/alert_model.dart';
 import '../../../data/repositories/alert_repository.dart';
@@ -39,7 +40,7 @@ class AlertBloc extends Bloc<AlertEvent, AlertState> {
         criticalCount: response.criticalCount,
       ));
     } catch (e) {
-      emit(AlertError(message: e.toString()));
+      emit(AlertError(message: sanitizeErrorMessage(e)));
     }
   }
 
@@ -71,7 +72,7 @@ class AlertBloc extends Bloc<AlertEvent, AlertState> {
         unreadCount: currentState.unreadCount - event.alertIds.length,
       ));
     } catch (e) {
-      emit(AlertError(message: e.toString()));
+      emit(AlertError(message: sanitizeErrorMessage(e)));
       emit(currentState);
     }
   }
@@ -106,7 +107,7 @@ class AlertBloc extends Bloc<AlertEvent, AlertState> {
             : currentState.criticalCount,
       ));
     } catch (e) {
-      emit(AlertError(message: e.toString()));
+      emit(AlertError(message: sanitizeErrorMessage(e)));
       emit(currentState);
     }
   }
@@ -123,7 +124,7 @@ class AlertBloc extends Bloc<AlertEvent, AlertState> {
       // Reload alerts to get accurate counts
       add(const AlertLoadRequested());
     } catch (e) {
-      emit(AlertError(message: e.toString()));
+      emit(AlertError(message: sanitizeErrorMessage(e)));
       emit(currentState);
     }
   }

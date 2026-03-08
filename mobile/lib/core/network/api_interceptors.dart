@@ -179,17 +179,19 @@ class LoggingInterceptor extends Interceptor {
   }
 }
 
-/// Retry interceptor - retries failed requests
+/// Retry interceptor - retries failed requests using the shared Dio instance
 class RetryInterceptor extends Interceptor {
+  final Dio _dio;
   final int maxRetries;
   final Duration retryDelay;
   final List<int> retryStatusCodes;
 
   RetryInterceptor({
+    required Dio dio,
     this.maxRetries = 3,
     this.retryDelay = const Duration(seconds: 1),
     this.retryStatusCodes = const [408, 429, 500, 502, 503, 504],
-  });
+  }) : _dio = dio;
 
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) async {
@@ -209,7 +211,7 @@ class RetryInterceptor extends Interceptor {
         }
 
         try {
-          final response = await Dio().fetch(err.requestOptions);
+          final response = await _dio.fetch(err.requestOptions);
           handler.resolve(response);
           return;
         } catch (e) {

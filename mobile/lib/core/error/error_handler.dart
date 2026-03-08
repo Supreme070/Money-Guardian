@@ -1,13 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 
 import 'exceptions.dart';
 
 /// Global error handler for uncaught exceptions.
 ///
-/// Logs errors and provides user-friendly messages.
-/// In production, this would also report to Sentry/Crashlytics.
+/// Reports errors to Sentry in release builds and logs locally in debug.
 class ErrorHandler {
   static final ErrorHandler _instance = ErrorHandler._();
   factory ErrorHandler() => _instance;
@@ -28,15 +28,31 @@ class ErrorHandler {
   }
 
   void _handleFlutterError(FlutterErrorDetails details) {
-    debugPrint('Flutter error: ${details.exceptionAsString()}');
-    debugPrint('Stack: ${details.stack}');
-    // In production: report to crash reporting service
+    if (kDebugMode) {
+      debugPrint('Flutter error: ${details.exceptionAsString()}');
+      debugPrint('Stack: ${details.stack}');
+    } else {
+      Sentry.captureException(
+        details.exception,
+        stackTrace: details.stack,
+      );
+    }
   }
 
   void _handleUncaughtError(Object error, StackTrace stack) {
-    debugPrint('Uncaught error: $error');
-    debugPrint('Stack: $stack');
-    // In production: report to crash reporting service
+    if (kDebugMode) {
+      debugPrint('Uncaught error: $error');
+      debugPrint('Stack: $stack');
+    } else {
+      Sentry.captureException(error, stackTrace: stack);
+    }
+  }
+
+  /// Report a caught exception to Sentry (non-fatal).
+  static void reportError(Object error, {StackTrace? stackTrace}) {
+    if (!kDebugMode) {
+      Sentry.captureException(error, stackTrace: stackTrace);
+    }
   }
 
   /// Convert any exception to a user-friendly message.

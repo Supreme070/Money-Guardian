@@ -2,6 +2,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
 
 import '../../../core/di/injection.dart';
+import '../../../core/error/exceptions.dart';
 import '../../../core/services/analytics_service.dart';
 import '../../../data/models/bank_connection_model.dart';
 import '../../../data/repositories/banking_repository.dart';
@@ -40,13 +41,13 @@ class BankingBloc extends Bloc<BankingEvent, BankingState> {
         accountCount: response.accountCount,
       ));
     } catch (e) {
-      if (_isProRequired(e.toString())) {
+      if (e is TierLimitException) {
         emit(const BankingProRequired(
           feature: 'Bank connection',
           currentTier: 'free',
         ));
       } else {
-        emit(BankingError(message: e.toString()));
+        emit(BankingError(message: sanitizeErrorMessage(e)));
       }
     }
   }
@@ -72,14 +73,14 @@ class BankingBloc extends Bloc<BankingEvent, BankingState> {
         previousState: previousState,
       ));
     } catch (e) {
-      if (_isProRequired(e.toString())) {
+      if (e is TierLimitException) {
         emit(const BankingProRequired(
           feature: 'Bank connection',
           currentTier: 'free',
         ));
       } else {
         emit(BankingError(
-          message: e.toString(),
+          message: sanitizeErrorMessage(e),
           previousState: previousState,
         ));
       }
@@ -110,7 +111,7 @@ class BankingBloc extends Bloc<BankingEvent, BankingState> {
       add(const BankingLoadRequested());
     } catch (e) {
       emit(BankingError(
-        message: e.toString(),
+        message: sanitizeErrorMessage(e),
         previousState: previousState,
       ));
     }
@@ -141,7 +142,7 @@ class BankingBloc extends Bloc<BankingEvent, BankingState> {
       add(const BankingLoadRequested());
     } catch (e) {
       emit(BankingError(
-        message: e.toString(),
+        message: sanitizeErrorMessage(e),
         previousState: previousState,
       ));
     }
@@ -165,7 +166,7 @@ class BankingBloc extends Bloc<BankingEvent, BankingState> {
       add(const BankingLoadRequested());
     } catch (e) {
       emit(BankingError(
-        message: e.toString(),
+        message: sanitizeErrorMessage(e),
         previousState: previousState,
       ));
     }
@@ -190,7 +191,7 @@ class BankingBloc extends Bloc<BankingEvent, BankingState> {
       add(const BankingLoadRequested());
     } catch (e) {
       emit(BankingError(
-        message: e.toString(),
+        message: sanitizeErrorMessage(e),
         previousState: previousState,
       ));
     }
@@ -233,7 +234,7 @@ class BankingBloc extends Bloc<BankingEvent, BankingState> {
       ));
     } catch (e) {
       emit(BankingError(
-        message: e.toString(),
+        message: sanitizeErrorMessage(e),
         previousState: previousState,
       ));
     }
@@ -276,15 +277,9 @@ class BankingBloc extends Bloc<BankingEvent, BankingState> {
       add(BankingRecurringLoadRequested(connectionId: event.connectionId));
     } catch (e) {
       emit(BankingError(
-        message: e.toString(),
+        message: sanitizeErrorMessage(e),
         previousState: previousState,
       ));
     }
-  }
-
-  bool _isProRequired(String error) {
-    return error.contains('Pro subscription') ||
-        error.contains('upgrade_required') ||
-        error.contains('402');
   }
 }

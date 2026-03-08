@@ -1,5 +1,6 @@
 """Authentication service - handles user registration and login."""
 
+import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
@@ -195,12 +196,13 @@ class AuthService:
         if user is None:
             return None
 
-        # Generate secure token
+        # Generate secure token and store its hash (never store plaintext)
         token = secrets.token_urlsafe(32)
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
         expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
 
-        # Store token
-        user.password_reset_token = token
+        # Store hashed token - the raw token is returned to the caller for email
+        user.password_reset_token = token_hash
         user.password_reset_token_expires_at = expires_at
 
         await self.db.commit()
@@ -218,9 +220,11 @@ class AuthService:
         Validates token and updates password.
         Raises InvalidResetTokenError if token is invalid or expired.
         """
-        # Find user by reset token
+        # Hash the incoming token and compare against stored hash
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+
         result = await self.db.execute(
-            select(User).where(User.password_reset_token == token)
+            select(User).where(User.password_reset_token == token_hash)
         )
         user = result.scalar_one_or_none()
 

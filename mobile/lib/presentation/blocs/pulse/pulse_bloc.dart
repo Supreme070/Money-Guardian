@@ -2,6 +2,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
 
 import '../../../core/di/injection.dart';
+import '../../../core/error/exceptions.dart';
 import '../../../core/services/analytics_service.dart';
 import '../../../data/repositories/pulse_repository.dart';
 import 'pulse_event.dart';
@@ -28,7 +29,7 @@ class PulseBloc extends Bloc<PulseEvent, PulseState> {
       getIt<AnalyticsService>().logPulseViewed(status: pulse.status.name);
       emit(PulseLoaded(pulse: pulse));
     } catch (e) {
-      emit(PulseError(message: e.toString()));
+      emit(PulseError(message: sanitizeErrorMessage(e)));
     }
   }
 
@@ -50,7 +51,7 @@ class PulseBloc extends Bloc<PulseEvent, PulseState> {
       getIt<AnalyticsService>().logPulseRefreshed();
       emit(PulseLoaded(pulse: pulse));
     } catch (e) {
-      emit(PulseError(message: e.toString()));
+      emit(PulseError(message: sanitizeErrorMessage(e)));
       // Restore previous state if available
       if (currentState is PulseLoaded) {
         emit(currentState);

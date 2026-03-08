@@ -47,7 +47,7 @@ class SubscriptionBloc extends Bloc<SubscriptionEvent, SubscriptionState> {
         flaggedCount: response.flaggedCount,
       ));
     } catch (e) {
-      emit(SubscriptionError(message: e.toString()));
+      emit(SubscriptionError(message: sanitizeErrorMessage(e)));
     }
   }
 
@@ -97,7 +97,7 @@ class SubscriptionBloc extends Bloc<SubscriptionEvent, SubscriptionState> {
         emit(currentState);
       }
     } catch (e) {
-      emit(SubscriptionError(message: e.toString()));
+      emit(SubscriptionError(message: sanitizeErrorMessage(e)));
       if (currentState is SubscriptionLoaded) {
         emit(currentState);
       }
@@ -121,7 +121,7 @@ class SubscriptionBloc extends Bloc<SubscriptionEvent, SubscriptionState> {
       // Reload subscriptions to get updated data
       add(const SubscriptionLoadRequested());
     } catch (e) {
-      emit(SubscriptionError(message: e.toString()));
+      emit(SubscriptionError(message: sanitizeErrorMessage(e)));
       if (currentState is SubscriptionLoaded) {
         emit(currentState);
       }
@@ -143,7 +143,7 @@ class SubscriptionBloc extends Bloc<SubscriptionEvent, SubscriptionState> {
       // Reload subscriptions
       add(const SubscriptionLoadRequested());
     } catch (e) {
-      emit(SubscriptionError(message: e.toString()));
+      emit(SubscriptionError(message: sanitizeErrorMessage(e)));
       if (currentState is SubscriptionLoaded) {
         emit(currentState);
       }
@@ -164,7 +164,7 @@ class SubscriptionBloc extends Bloc<SubscriptionEvent, SubscriptionState> {
       getIt<AnalyticsService>().logSubscriptionPaused(subscriptionId: event.subscriptionId);
       add(const SubscriptionLoadRequested());
     } catch (e) {
-      emit(SubscriptionError(message: e.toString()));
+      emit(SubscriptionError(message: sanitizeErrorMessage(e)));
       if (currentState is SubscriptionLoaded) {
         emit(currentState);
       }
@@ -185,7 +185,7 @@ class SubscriptionBloc extends Bloc<SubscriptionEvent, SubscriptionState> {
       getIt<AnalyticsService>().logSubscriptionResumed(subscriptionId: event.subscriptionId);
       add(const SubscriptionLoadRequested());
     } catch (e) {
-      emit(SubscriptionError(message: e.toString()));
+      emit(SubscriptionError(message: sanitizeErrorMessage(e)));
       if (currentState is SubscriptionLoaded) {
         emit(currentState);
       }
@@ -206,7 +206,7 @@ class SubscriptionBloc extends Bloc<SubscriptionEvent, SubscriptionState> {
       getIt<AnalyticsService>().logSubscriptionCancelled(subscriptionId: event.subscriptionId);
       add(const SubscriptionLoadRequested());
     } catch (e) {
-      emit(SubscriptionError(message: e.toString()));
+      emit(SubscriptionError(message: sanitizeErrorMessage(e)));
       if (currentState is SubscriptionLoaded) {
         emit(currentState);
       }
@@ -241,7 +241,7 @@ class SubscriptionBloc extends Bloc<SubscriptionEvent, SubscriptionState> {
       // Reload subscriptions to get updated flags
       add(const SubscriptionLoadRequested());
     } catch (e) {
-      emit(SubscriptionError(message: e.toString()));
+      emit(SubscriptionError(message: sanitizeErrorMessage(e)));
       if (loadedState != null) {
         emit(loadedState);
       }
@@ -267,7 +267,7 @@ class SubscriptionBloc extends Bloc<SubscriptionEvent, SubscriptionState> {
         previousState: loadedState,
       ));
     } catch (e) {
-      emit(SubscriptionError(message: e.toString()));
+      emit(SubscriptionError(message: sanitizeErrorMessage(e)));
       if (loadedState != null) {
         emit(loadedState);
       }

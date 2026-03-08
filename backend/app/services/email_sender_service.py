@@ -3,6 +3,7 @@
 Uses aiosmtplib for async SMTP email delivery.
 """
 
+import hashlib
 import logging
 import secrets
 from datetime import datetime, timedelta, timezone
@@ -39,20 +40,21 @@ class EmailSenderService:
         Returns True if email was sent successfully.
         """
         token = secrets.token_urlsafe(32)
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
         expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
 
-        # Store token on user
+        # Store hashed token - raw token goes in the email link
         await self.db.execute(
             update(User)
             .where(User.id == user_id)
             .values(
-                email_verification_token=token,
+                email_verification_token=token_hash,
                 email_verification_token_expires_at=expires_at,
             )
         )
         await self.db.commit()
 
-        # Build verification URL
+        # Build verification URL with the raw (unhashed) token
         verify_url = (
             f"{settings.frontend_url}/verify-email?token={token}"
         )
@@ -110,20 +112,21 @@ class EmailSenderService:
         Returns True if email was sent successfully.
         """
         token = secrets.token_urlsafe(32)
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
         expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
 
-        # Store token on user
+        # Store hashed token - raw token goes in the email link
         await self.db.execute(
             update(User)
             .where(User.id == user_id)
             .values(
-                password_reset_token=token,
+                password_reset_token=token_hash,
                 password_reset_token_expires_at=expires_at,
             )
         )
         await self.db.commit()
 
-        # Build reset URL
+        # Build reset URL with the raw (unhashed) token
         reset_url = (
             f"{settings.frontend_url}/reset-password?token={token}"
         )
@@ -172,11 +175,14 @@ class EmailSenderService:
         """
         Verify an email verification token and mark user as verified.
 
+        Hashes the incoming token and compares against the stored hash.
         Returns True if token is valid and user is verified.
         """
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+
         result = await self.db.execute(
             select(User).where(
-                User.email_verification_token == token,
+                User.email_verification_token == token_hash,
                 User.is_verified == False,
             )
         )
@@ -205,11 +211,14 @@ class EmailSenderService:
         """
         Verify a password reset token.
 
+        Hashes the incoming token and compares against the stored hash.
         Returns the user if token is valid, None otherwise.
         """
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+
         result = await self.db.execute(
             select(User).where(
-                User.password_reset_token == token,
+                User.password_reset_token == token_hash,
             )
         )
         user = result.scalar_one_or_none()

@@ -8,12 +8,13 @@ import logging
 from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.core.rate_limit import limiter
 from app.db.session import get_db
 from app.models.tenant import Tenant
 from app.models.user import User
@@ -151,7 +152,9 @@ class ConnectionHealthResponse(BaseModel):
 
 
 @router.get("/users/lookup", response_model=AdminUserResponse)
+@limiter.limit("5/minute")
 async def admin_lookup_user(
+    request: Request,
     email: str,
     db: AsyncSession = Depends(get_db),
     _admin: str = Depends(verify_admin_key),
@@ -185,9 +188,11 @@ async def admin_lookup_user(
 
 
 @router.post("/tenants/{tenant_id}/tier", response_model=TierOverrideResponse)
+@limiter.limit("5/minute")
 async def admin_override_tier(
+    request: Request,
     tenant_id: UUID,
-    request: TierOverrideRequest,
+    body: TierOverrideRequest = ...,
     db: AsyncSession = Depends(get_db),
     _admin: str = Depends(verify_admin_key),
 ) -> TierOverrideResponse:
@@ -202,24 +207,26 @@ async def admin_override_tier(
         )
 
     previous_tier = tenant.tier
-    tenant.tier = request.tier
+    tenant.tier = body.tier
     db.add(tenant)
     await db.commit()
 
     logger.info(
         "Admin tier override: tenant=%s from=%s to=%s reason=%s",
-        tenant_id, previous_tier, request.tier, request.reason,
+        tenant_id, previous_tier, body.tier, body.reason,
     )
 
     return TierOverrideResponse(
         tenant_id=str(tenant_id),
         previous_tier=previous_tier,
-        new_tier=request.tier,
+        new_tier=body.tier,
     )
 
 
 @router.get("/stats", response_model=SystemStatsResponse)
+@limiter.limit("5/minute")
 async def admin_system_stats(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     _admin: str = Depends(verify_admin_key),
 ) -> SystemStatsResponse:
@@ -267,7 +274,9 @@ async def admin_system_stats(
 
 
 @router.get("/connections/health", response_model=ConnectionHealthResponse)
+@limiter.limit("5/minute")
 async def admin_connection_health(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     _admin: str = Depends(verify_admin_key),
 ) -> ConnectionHealthResponse:
@@ -324,7 +333,9 @@ async def admin_connection_health(
 
 
 @router.get("/users", response_model=PaginatedUsersResponse)
+@limiter.limit("5/minute")
 async def admin_list_users(
+    request: Request,
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     search: str | None = Query(default=None, max_length=255),
@@ -341,7 +352,9 @@ async def admin_list_users(
 
 
 @router.get("/users/{user_id}", response_model=AdminUserDetailResponse)
+@limiter.limit("5/minute")
 async def admin_get_user(
+    request: Request,
     user_id: UUID,
     db: AsyncSession = Depends(get_db),
     _admin: str = Depends(verify_admin_key),
@@ -357,15 +370,17 @@ async def admin_get_user(
 
 
 @router.put("/users/{user_id}/status", response_model=UserStatusUpdateResponse)
+@limiter.limit("5/minute")
 async def admin_update_user_status(
+    request: Request,
     user_id: UUID,
-    request: UserStatusUpdate,
+    body: UserStatusUpdate = ...,
     db: AsyncSession = Depends(get_db),
     _admin: str = Depends(verify_admin_key),
 ) -> UserStatusUpdateResponse:
     """Activate or deactivate a user."""
     try:
-        return await update_user_status(db, user_id, request)
+        return await update_user_status(db, user_id, body)
     except UserNotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -374,7 +389,9 @@ async def admin_update_user_status(
 
 
 @router.get("/users/{user_id}/subscriptions", response_model=list[AdminSubscriptionItem])
+@limiter.limit("5/minute")
 async def admin_get_user_subscriptions(
+    request: Request,
     user_id: UUID,
     db: AsyncSession = Depends(get_db),
     _admin: str = Depends(verify_admin_key),
@@ -384,7 +401,9 @@ async def admin_get_user_subscriptions(
 
 
 @router.get("/users/{user_id}/alerts", response_model=list[AdminAlertItem])
+@limiter.limit("5/minute")
 async def admin_get_user_alerts(
+    request: Request,
     user_id: UUID,
     db: AsyncSession = Depends(get_db),
     _admin: str = Depends(verify_admin_key),
@@ -394,7 +413,9 @@ async def admin_get_user_alerts(
 
 
 @router.get("/users/{user_id}/connections", response_model=AdminUserConnectionsResponse)
+@limiter.limit("5/minute")
 async def admin_get_user_connections(
+    request: Request,
     user_id: UUID,
     db: AsyncSession = Depends(get_db),
     _admin: str = Depends(verify_admin_key),
@@ -409,7 +430,9 @@ async def admin_get_user_connections(
 
 
 @router.get("/tenants", response_model=PaginatedTenantsResponse)
+@limiter.limit("5/minute")
 async def admin_list_tenants(
+    request: Request,
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     tier: str | None = Query(default=None),
@@ -425,7 +448,9 @@ async def admin_list_tenants(
 
 
 @router.get("/tenants/{tenant_id}", response_model=AdminTenantDetailResponse)
+@limiter.limit("5/minute")
 async def admin_get_tenant(
+    request: Request,
     tenant_id: UUID,
     db: AsyncSession = Depends(get_db),
     _admin: str = Depends(verify_admin_key),
@@ -441,15 +466,17 @@ async def admin_get_tenant(
 
 
 @router.put("/tenants/{tenant_id}/status", response_model=TenantStatusUpdateResponse)
+@limiter.limit("5/minute")
 async def admin_update_tenant_status(
+    request: Request,
     tenant_id: UUID,
-    request: TenantStatusUpdate,
+    body: TenantStatusUpdate = ...,
     db: AsyncSession = Depends(get_db),
     _admin: str = Depends(verify_admin_key),
 ) -> TenantStatusUpdateResponse:
     """Change tenant status (active/suspended/deleted)."""
     try:
-        return await update_tenant_status(db, tenant_id, request)
+        return await update_tenant_status(db, tenant_id, body)
     except TenantNotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -463,7 +490,9 @@ async def admin_update_tenant_status(
 
 
 @router.get("/analytics/overview", response_model=AnalyticsOverviewResponse)
+@limiter.limit("5/minute")
 async def admin_analytics_overview(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     _admin: str = Depends(verify_admin_key),
 ) -> AnalyticsOverviewResponse:
@@ -472,7 +501,9 @@ async def admin_analytics_overview(
 
 
 @router.get("/analytics/signups", response_model=SignupAnalyticsResponse)
+@limiter.limit("5/minute")
 async def admin_analytics_signups(
+    request: Request,
     period: str = Query(default="daily"),
     days: int = Query(default=30, ge=7, le=365),
     db: AsyncSession = Depends(get_db),
@@ -483,7 +514,9 @@ async def admin_analytics_signups(
 
 
 @router.get("/analytics/subscriptions", response_model=SubscriptionAnalyticsResponse)
+@limiter.limit("5/minute")
 async def admin_analytics_subscriptions(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     _admin: str = Depends(verify_admin_key),
 ) -> SubscriptionAnalyticsResponse:
@@ -492,7 +525,9 @@ async def admin_analytics_subscriptions(
 
 
 @router.get("/analytics/connections", response_model=ConnectionAnalyticsResponse)
+@limiter.limit("5/minute")
 async def admin_analytics_connections(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     _admin: str = Depends(verify_admin_key),
 ) -> ConnectionAnalyticsResponse:
@@ -501,7 +536,9 @@ async def admin_analytics_connections(
 
 
 @router.get("/analytics/revenue", response_model=RevenueAnalyticsResponse)
+@limiter.limit("5/minute")
 async def admin_analytics_revenue(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     _admin: str = Depends(verify_admin_key),
 ) -> RevenueAnalyticsResponse:
@@ -515,7 +552,9 @@ async def admin_analytics_revenue(
 
 
 @router.get("/monitoring/health", response_model=SystemHealthDetailResponse)
+@limiter.limit("5/minute")
 async def admin_monitoring_health(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     _admin: str = Depends(verify_admin_key),
 ) -> SystemHealthDetailResponse:
@@ -524,7 +563,9 @@ async def admin_monitoring_health(
 
 
 @router.get("/monitoring/errors", response_model=ErrorLogResponse)
+@limiter.limit("5/minute")
 async def admin_monitoring_errors(
+    request: Request,
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     entity_type: str | None = Query(default=None),
@@ -538,7 +579,9 @@ async def admin_monitoring_errors(
 
 
 @router.get("/monitoring/celery", response_model=CeleryStatusResponse)
+@limiter.limit("5/minute")
 async def admin_monitoring_celery(
+    request: Request,
     _admin: str = Depends(verify_admin_key),
 ) -> CeleryStatusResponse:
     """Celery task queue status."""

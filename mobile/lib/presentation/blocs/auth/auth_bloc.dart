@@ -2,6 +2,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
 
 import '../../../core/di/injection.dart';
+import '../../../core/error/exceptions.dart';
 import '../../../core/services/analytics_service.dart';
 import '../../../data/models/auth_models.dart';
 import '../../../data/models/user_model.dart';
@@ -61,7 +62,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       getIt<AnalyticsService>().logLogin(method: 'email');
       emit(AuthAuthenticated(user: user));
     } catch (e) {
-      emit(AuthError(message: e.toString()));
+      emit(AuthError(message: sanitizeErrorMessage(e)));
     }
   }
 
@@ -83,7 +84,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       getIt<AnalyticsService>().logSignUp(method: 'email');
       emit(AuthAuthenticated(user: user));
     } catch (e) {
-      emit(AuthError(message: e.toString()));
+      emit(AuthError(message: sanitizeErrorMessage(e)));
     }
   }
 
@@ -126,7 +127,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       );
       emit(AuthAuthenticated(user: updatedUser));
     } catch (e) {
-      emit(AuthError(message: e.toString()));
+      emit(AuthError(message: sanitizeErrorMessage(e)));
       // Restore previous state
       emit(currentState);
     }
@@ -166,7 +167,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       );
       emit(AuthPasswordResetEmailSent(message: response.message));
     } catch (e) {
-      emit(AuthPasswordResetError(message: e.toString()));
+      emit(AuthPasswordResetError(message: sanitizeErrorMessage(e)));
     }
   }
 
@@ -185,7 +186,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       );
       emit(AuthPasswordResetSuccess(message: response.message));
     } catch (e) {
-      emit(AuthPasswordResetError(message: e.toString()));
+      emit(AuthPasswordResetError(message: sanitizeErrorMessage(e)));
     }
   }
 
@@ -216,7 +217,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       // Restore authenticated state so the UI doesn't break
       emit(currentState);
     } catch (e) {
-      emit(AuthError(message: e.toString()));
+      emit(AuthError(message: sanitizeErrorMessage(e)));
       emit(currentState);
     }
   }
@@ -233,7 +234,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       getIt<AnalyticsService>().setUserId(null);
       emit(const AuthUnauthenticated());
     } catch (e) {
-      emit(AuthDeleteAccountError(message: e.toString()));
+      emit(AuthDeleteAccountError(message: sanitizeErrorMessage(e)));
     }
   }
 }

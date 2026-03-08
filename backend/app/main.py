@@ -19,6 +19,27 @@ from app.core.rate_limit import limiter
 
 logger = logging.getLogger(__name__)
 
+# ---------------------------------------------------------------------------
+# Sentry Error Monitoring
+# ---------------------------------------------------------------------------
+if settings.sentry_dsn:
+    try:
+        import sentry_sdk
+        from sentry_sdk.integrations.fastapi import FastApiIntegration
+        from sentry_sdk.integrations.celery import CeleryIntegration
+
+        sentry_sdk.init(
+            dsn=settings.sentry_dsn,
+            environment=settings.environment,
+            release=f"money-guardian-api@{settings.app_version}",
+            traces_sample_rate=settings.sentry_traces_sample_rate,
+            integrations=[FastApiIntegration(), CeleryIntegration()],
+            send_default_pii=False,
+        )
+        logger.info("Sentry initialized (environment=%s)", settings.environment)
+    except ImportError:
+        logger.warning("sentry-sdk not installed — error monitoring disabled")
+
 
 # ---------------------------------------------------------------------------
 # JSON Serialization

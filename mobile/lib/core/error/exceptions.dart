@@ -74,3 +74,21 @@ class TierLimitException extends AppException {
   String toString() =>
       'TierLimitException: $message (current: $currentCount, limit: $limit)';
 }
+
+/// Maps exceptions to user-friendly error messages.
+/// Prevents leaking internal details (stack traces, server errors) to the UI.
+String sanitizeErrorMessage(Object error) {
+  if (error is NetworkException) {
+    return 'Check your internet connection and try again.';
+  }
+  if (error is AuthException) {
+    return 'Session expired. Please log in again.';
+  }
+  if (error is TierLimitException) {
+    return error.message;
+  }
+  if (error is ServerException) {
+    return 'Something went wrong. Please try again.';
+  }
+  return 'An unexpected error occurred. Please try again.';
+}

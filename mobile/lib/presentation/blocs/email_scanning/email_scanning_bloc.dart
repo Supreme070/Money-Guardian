@@ -2,6 +2,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
 
 import '../../../core/di/injection.dart';
+import '../../../core/error/exceptions.dart';
 import '../../../core/services/analytics_service.dart';
 import '../../../data/repositories/email_repository.dart';
 import 'email_scanning_event.dart';
@@ -38,13 +39,13 @@ class EmailScanningBloc extends Bloc<EmailScanningEvent, EmailScanningState> {
         connections: response.connections,
       ));
     } catch (e) {
-      if (_isProRequired(e.toString())) {
+      if (e is TierLimitException) {
         emit(const EmailScanningProRequired(
           feature: 'Email scanning',
           currentTier: 'free',
         ));
       } else {
-        emit(EmailScanningError(message: e.toString()));
+        emit(EmailScanningError(message: sanitizeErrorMessage(e)));
       }
     }
   }
@@ -72,14 +73,14 @@ class EmailScanningBloc extends Bloc<EmailScanningEvent, EmailScanningState> {
         previousState: previousState,
       ));
     } catch (e) {
-      if (_isProRequired(e.toString())) {
+      if (e is TierLimitException) {
         emit(const EmailScanningProRequired(
           feature: 'Email scanning',
           currentTier: 'free',
         ));
       } else {
         emit(EmailScanningError(
-          message: e.toString(),
+          message: sanitizeErrorMessage(e),
           previousState: previousState,
         ));
       }
@@ -113,7 +114,7 @@ class EmailScanningBloc extends Bloc<EmailScanningEvent, EmailScanningState> {
       add(const EmailLoadRequested());
     } catch (e) {
       emit(EmailScanningError(
-        message: e.toString(),
+        message: sanitizeErrorMessage(e),
         previousState: previousState,
       ));
     }
@@ -152,7 +153,7 @@ class EmailScanningBloc extends Bloc<EmailScanningEvent, EmailScanningState> {
       ));
     } catch (e) {
       emit(EmailScanningError(
-        message: e.toString(),
+        message: sanitizeErrorMessage(e),
         previousState: previousState,
       ));
     }
@@ -184,7 +185,7 @@ class EmailScanningBloc extends Bloc<EmailScanningEvent, EmailScanningState> {
       ));
     } catch (e) {
       emit(EmailScanningError(
-        message: e.toString(),
+        message: sanitizeErrorMessage(e),
         previousState: loadedState,
       ));
     }
@@ -211,7 +212,7 @@ class EmailScanningBloc extends Bloc<EmailScanningEvent, EmailScanningState> {
       ));
     } catch (e) {
       emit(EmailScanningError(
-        message: e.toString(),
+        message: sanitizeErrorMessage(e),
         previousState: previousState,
       ));
     }
@@ -236,7 +237,7 @@ class EmailScanningBloc extends Bloc<EmailScanningEvent, EmailScanningState> {
       add(const EmailLoadRequested());
     } catch (e) {
       emit(EmailScanningError(
-        message: e.toString(),
+        message: sanitizeErrorMessage(e),
         previousState: previousState,
       ));
     }
@@ -291,15 +292,9 @@ class EmailScanningBloc extends Bloc<EmailScanningEvent, EmailScanningState> {
       ));
     } catch (e) {
       emit(EmailScanningError(
-        message: e.toString(),
+        message: sanitizeErrorMessage(e),
         previousState: previousState,
       ));
     }
-  }
-
-  bool _isProRequired(String error) {
-    return error.contains('Pro subscription') ||
-        error.contains('upgrade_required') ||
-        error.contains('402');
   }
 }
