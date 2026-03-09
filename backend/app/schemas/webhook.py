@@ -112,3 +112,61 @@ class PlaidWebhookBody(BaseModel):
         default=None,
         description="Error details (only present on ITEM/ERROR events)",
     )
+
+
+# ---------------------------------------------------------------------------
+# AWS SNS / SES Bounce & Complaint Models
+# ---------------------------------------------------------------------------
+
+class SNSBounceRecipient(BaseModel):
+    """A bounced email recipient from SES."""
+
+    model_config = {"extra": "ignore"}
+
+    emailAddress: str
+
+
+class SNSBounce(BaseModel):
+    """SES bounce notification data."""
+
+    model_config = {"extra": "ignore"}
+
+    bounceType: str = Field(description="Permanent, Transient, or Undetermined")
+    bouncedRecipients: list[SNSBounceRecipient] = Field(default_factory=list)
+
+
+class SNSComplaintRecipient(BaseModel):
+    """A complained email recipient from SES."""
+
+    model_config = {"extra": "ignore"}
+
+    emailAddress: str
+
+
+class SNSComplaint(BaseModel):
+    """SES complaint notification data."""
+
+    model_config = {"extra": "ignore"}
+
+    complainedRecipients: list[SNSComplaintRecipient] = Field(default_factory=list)
+
+
+class SNSNotificationPayload(BaseModel):
+    """Inner SES notification message (parsed from SNS Message JSON)."""
+
+    model_config = {"extra": "ignore"}
+
+    notificationType: str = Field(description="Bounce, Complaint, or Delivery")
+    bounce: SNSBounce | None = None
+    complaint: SNSComplaint | None = None
+
+
+class SNSMessage(BaseModel):
+    """Top-level SNS HTTP notification envelope."""
+
+    model_config = {"extra": "ignore"}
+
+    Type: str = Field(description="SubscriptionConfirmation or Notification")
+    MessageId: str = ""
+    Message: str = Field(default="", description="JSON string (for Notification type)")
+    SubscribeURL: str | None = Field(default=None, description="URL to confirm subscription")

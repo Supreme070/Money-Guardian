@@ -117,7 +117,18 @@ class Settings(BaseSettings):
     rate_limit_per_minute: int = 60
     auth_rate_limit_per_minute: int = 10  # Stricter for auth endpoints
 
-    # Email Sending (for verification & password reset)
+    # Email Provider ("ses" for production, "smtp" for local dev)
+    email_provider: Literal["ses", "smtp"] = "smtp"
+
+    # AWS SES (when email_provider = "ses")
+    aws_access_key_id: str | None = None
+    aws_secret_access_key: str | None = None
+    aws_region: str = "us-east-1"
+    ses_configuration_set: str | None = None
+    ses_from_email: str = "noreply@moneyguardian.app"
+    ses_from_name: str = "Money Guardian"
+
+    # SMTP fallback (for local dev without AWS)
     smtp_host: str = "smtp.gmail.com"
     smtp_port: int = 587
     smtp_user: str | None = None

@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 
 # Deduplication key prefix and TTL (24 hours)
 _DEDUP_PREFIX = "mg:notif_dedup:"
+_EMAIL_DEDUP_PREFIX = "mg:email_dedup:"
 _DEDUP_TTL = 86400  # 24 hours
 
 
@@ -118,7 +119,7 @@ def send_upcoming_charge_notifications(self) -> dict[str, int]:
 
 
 def _user_wants_notification(user: User, notification_type: str) -> bool:
-    """Check if user has enabled this notification type in granular preferences.
+    """Check if user has enabled this notification type for push.
 
     Falls back to True if the preference key is missing (opt-out model).
     Also checks the global push_notifications_enabled toggle.
@@ -128,6 +129,40 @@ def _user_wants_notification(user: User, notification_type: str) -> bool:
 
     prefs: dict[str, bool] = user.notification_preferences or {}
     return prefs.get(notification_type, True)
+
+
+def _user_wants_email_notification(user: User, notification_type: str) -> bool:
+    """Check if user should receive email notifications.
+
+    Checks: email_notifications_enabled (user pref), email_suppressed (system),
+    is_verified, and granular notification_preferences.
+    """
+    if not user.email_notifications_enabled:
+        return False
+    if getattr(user, "email_suppressed", False):
+        return False
+    if not user.is_verified:
+        return False
+
+    prefs: dict[str, bool] = user.notification_preferences or {}
+    return prefs.get(notification_type, True)
+
+
+async def _is_email_already_sent(dedup_key: str) -> bool:
+    """Check if an email was already sent (separate dedup from push)."""
+    try:
+        r = aioredis.from_url(str(settings.redis_url), decode_responses=True)
+        try:
+            exists = await r.exists(f"{_EMAIL_DEDUP_PREFIX}{dedup_key}")
+            if exists:
+                return True
+            await r.setex(f"{_EMAIL_DEDUP_PREFIX}{dedup_key}", _DEDUP_TTL, "1")
+            return False
+        finally:
+            await r.aclose()
+    except Exception as e:
+        logger.warning("Email dedup check failed for key=%s: %s", dedup_key, e)
+        return False
 
 
 async def _send_upcoming_charge_notifications_async() -> dict[str, int]:
@@ -209,6 +244,28 @@ async def _send_upcoming_charge_notifications_async() -> dict[str, int]:
                 if not success:
                     # Push failed - still keep the alert but mark push_sent=False
                     alert.push_sent = False
+
+                # Send email notification (separate dedup from push)
+                if _user_wants_email_notification(user, "upcoming_charges"):
+                    email_dedup_key = f"email:upcoming:{sub.id}:{target_date.isoformat()}"
+                    if not await _is_email_already_sent(email_dedup_key):
+                        try:
+                            from app.services.email_template_service import EmailTemplateService
+                            from app.services.email_sender_service import EmailSenderService
+
+                            content = EmailTemplateService.render_upcoming_charge(
+                                subscription_name=sub.name,
+                                amount=float(sub.amount),
+                                billing_date=target_date.isoformat(),
+                                days_until=days_until,
+                            )
+                            email_sent = await EmailSenderService._send_email(
+                                user.email, content.subject, content.plain_body, content.html_body
+                            )
+                            if email_sent:
+                                alert.email_sent = True
+                        except Exception as email_err:
+                            logger.warning("Failed to send upcoming charge email to %s: %s", user.email, email_err)
 
                 sent_count += 1
 
@@ -339,6 +396,32 @@ async def _send_overdraft_warnings_async() -> dict[str, int]:
                 if not success:
                     alert.push_sent = False
 
+                # Send email notification (separate dedup from push)
+                if _user_wants_email_notification(user, "overdraft_warnings"):
+                    email_dedup_key = f"email:overdraft:{user.id}:{date.today().isoformat()}"
+                    if not await _is_email_already_sent(email_dedup_key):
+                        try:
+                            from app.services.email_template_service import EmailTemplateService
+                            from app.services.email_sender_service import EmailSenderService
+
+                            subs_list = [
+                                {"name": s.name, "amount": f"{float(s.amount):.2f}"}
+                                for s in upcoming_subs[:5]
+                            ]
+                            content = EmailTemplateService.render_overdraft_warning(
+                                total_balance=total_balance,
+                                upcoming_total=upcoming_total,
+                                shortfall=shortfall,
+                                subscriptions_list=subs_list,
+                            )
+                            email_sent = await EmailSenderService._send_email(
+                                user.email, content.subject, content.plain_body, content.html_body
+                            )
+                            if email_sent:
+                                alert.email_sent = True
+                        except Exception as email_err:
+                            logger.warning("Failed to send overdraft email to %s: %s", user.email, email_err)
+
                 sent_count += 1
 
         await db.commit()
@@ -346,6 +429,325 @@ async def _send_overdraft_warnings_async() -> dict[str, int]:
     except Exception as e:
         await db.rollback()
         logger.error("Error sending overdraft warnings: %s", e)
+        raise
+    finally:
+        await db.close()
+
+    return {"sent": sent_count}
+
+
+# ---------------------------------------------------------------------------
+# Tier 2 Tasks (Pro only)
+# ---------------------------------------------------------------------------
+
+@celery_app.task(
+    name="app.tasks.notification_tasks.send_price_increase_notifications",
+    bind=True,
+    max_retries=2,
+    default_retry_delay=300,
+)
+def send_price_increase_notifications(self) -> dict[str, int]:
+    """Notify Pro users about detected price increases. Runs daily."""
+    return asyncio.run(_send_price_increase_notifications_async())
+
+
+async def _send_price_increase_notifications_async() -> dict[str, int]:
+    """Async implementation of price increase notifications."""
+    db = _get_async_session()
+    sent_count = 0
+
+    try:
+        notification_service = NotificationService(db)
+
+        result = await db.execute(
+            select(Subscription).where(
+                Subscription.ai_flag == "price_increase",
+                Subscription.is_active == True,
+                Subscription.deleted_at.is_(None),
+            )
+        )
+        subscriptions = result.scalars().all()
+
+        for sub in subscriptions:
+            user_result = await db.execute(select(User).where(User.id == sub.user_id))
+            user = user_result.scalar_one_or_none()
+            if user is None or user.subscription_tier != "pro":
+                continue
+
+            dedup_key = f"price_increase:{sub.id}"
+            if await _is_already_notified(dedup_key):
+                continue
+
+            old_amount = float(sub.previous_amount) if sub.previous_amount else 0
+            new_amount = float(sub.amount)
+            percent_change = ((new_amount - old_amount) / old_amount * 100) if old_amount > 0 else 0
+
+            title = f"Price Increase: {sub.name}"
+            body = f"{sub.name} increased from ${old_amount:.2f} to ${new_amount:.2f} (+{percent_change:.0f}%)"
+
+            alert = await _create_alert(
+                db=db,
+                tenant_id=sub.tenant_id,
+                user_id=sub.user_id,
+                alert_type="price_increase",
+                severity="warning",
+                title=title,
+                message=body,
+                amount=sub.amount,
+                subscription_id=sub.id,
+            )
+
+            if _user_wants_notification(user, "price_increases"):
+                success = await notification_service.send_price_increase_alert(
+                    user_id=user.id,
+                    tenant_id=user.tenant_id,
+                    subscription_name=sub.name,
+                    old_price=old_amount,
+                    new_price=new_amount,
+                    subscription_id=str(sub.id),
+                )
+                if not success:
+                    alert.push_sent = False
+
+            if _user_wants_email_notification(user, "price_increases"):
+                email_dedup_key = f"email:price_increase:{sub.id}"
+                if not await _is_email_already_sent(email_dedup_key):
+                    try:
+                        from app.services.email_template_service import EmailTemplateService
+                        from app.services.email_sender_service import EmailSenderService
+
+                        content = EmailTemplateService.render_price_increase(
+                            subscription_name=sub.name,
+                            old_amount=old_amount,
+                            new_amount=new_amount,
+                            percent_change=percent_change,
+                        )
+                        if await EmailSenderService._send_email(
+                            user.email, content.subject, content.plain_body, content.html_body
+                        ):
+                            alert.email_sent = True
+                    except Exception as e:
+                        logger.warning("Failed to send price increase email: %s", e)
+
+            sent_count += 1
+
+        await db.commit()
+        logger.info("Sent %d price increase notifications", sent_count)
+    except Exception as e:
+        await db.rollback()
+        logger.error("Error sending price increase notifications: %s", e)
+        raise
+    finally:
+        await db.close()
+
+    return {"sent": sent_count}
+
+
+@celery_app.task(
+    name="app.tasks.notification_tasks.send_trial_ending_notifications",
+    bind=True,
+    max_retries=2,
+    default_retry_delay=300,
+)
+def send_trial_ending_notifications(self) -> dict[str, int]:
+    """Notify Pro users about trials ending within 3 days. Runs every 12h."""
+    return asyncio.run(_send_trial_ending_notifications_async())
+
+
+async def _send_trial_ending_notifications_async() -> dict[str, int]:
+    """Async implementation of trial ending notifications."""
+    db = _get_async_session()
+    sent_count = 0
+
+    try:
+        notification_service = NotificationService(db)
+        today = date.today()
+        three_days = today + timedelta(days=3)
+
+        result = await db.execute(
+            select(Subscription).where(
+                Subscription.trial_end_date.isnot(None),
+                Subscription.trial_end_date >= today,
+                Subscription.trial_end_date <= three_days,
+                Subscription.is_active == True,
+                Subscription.deleted_at.is_(None),
+            )
+        )
+        subscriptions = result.scalars().all()
+
+        for sub in subscriptions:
+            user_result = await db.execute(select(User).where(User.id == sub.user_id))
+            user = user_result.scalar_one_or_none()
+            if user is None or user.subscription_tier != "pro":
+                continue
+
+            dedup_key = f"trial_ending:{sub.id}"
+            if await _is_already_notified(dedup_key):
+                continue
+
+            trial_end = sub.trial_end_date.isoformat() if sub.trial_end_date else "soon"
+            amount = float(sub.amount)
+
+            title = f"Trial Ending: {sub.name}"
+            body = f"{sub.name} trial ends {trial_end}. ${amount:.2f}/mo after trial."
+
+            alert = await _create_alert(
+                db=db,
+                tenant_id=sub.tenant_id,
+                user_id=sub.user_id,
+                alert_type="trial_ending",
+                severity="warning",
+                title=title,
+                message=body,
+                amount=sub.amount,
+                subscription_id=sub.id,
+            )
+
+            if _user_wants_notification(user, "trial_endings"):
+                days_left = (sub.trial_end_date - today).days if sub.trial_end_date else 0
+                success = await notification_service.send_trial_ending_reminder(
+                    user_id=user.id,
+                    tenant_id=user.tenant_id,
+                    subscription_name=sub.name,
+                    days_until=days_left,
+                    amount_after_trial=amount,
+                    subscription_id=str(sub.id),
+                )
+                if not success:
+                    alert.push_sent = False
+
+            if _user_wants_email_notification(user, "trial_endings"):
+                email_dedup_key = f"email:trial_ending:{sub.id}"
+                if not await _is_email_already_sent(email_dedup_key):
+                    try:
+                        from app.services.email_template_service import EmailTemplateService
+                        from app.services.email_sender_service import EmailSenderService
+
+                        content = EmailTemplateService.render_trial_ending(
+                            subscription_name=sub.name,
+                            trial_end_date=trial_end,
+                            amount_after_trial=amount,
+                        )
+                        if await EmailSenderService._send_email(
+                            user.email, content.subject, content.plain_body, content.html_body
+                        ):
+                            alert.email_sent = True
+                    except Exception as e:
+                        logger.warning("Failed to send trial ending email: %s", e)
+
+            sent_count += 1
+
+        await db.commit()
+        logger.info("Sent %d trial ending notifications", sent_count)
+    except Exception as e:
+        await db.rollback()
+        logger.error("Error sending trial ending notifications: %s", e)
+        raise
+    finally:
+        await db.close()
+
+    return {"sent": sent_count}
+
+
+@celery_app.task(
+    name="app.tasks.notification_tasks.send_forgotten_subscription_notifications",
+    bind=True,
+    max_retries=2,
+    default_retry_delay=300,
+)
+def send_forgotten_subscription_notifications(self) -> dict[str, int]:
+    """Notify Pro users about unused/forgotten subscriptions. Runs weekly."""
+    return asyncio.run(_send_forgotten_subscription_notifications_async())
+
+
+async def _send_forgotten_subscription_notifications_async() -> dict[str, int]:
+    """Async implementation of forgotten subscription notifications."""
+    db = _get_async_session()
+    sent_count = 0
+
+    try:
+        notification_service = NotificationService(db)
+
+        result = await db.execute(
+            select(Subscription).where(
+                Subscription.ai_flag.in_(["unused", "forgotten"]),
+                Subscription.is_active == True,
+                Subscription.deleted_at.is_(None),
+            )
+        )
+        subscriptions = result.scalars().all()
+
+        for sub in subscriptions:
+            user_result = await db.execute(select(User).where(User.id == sub.user_id))
+            user = user_result.scalar_one_or_none()
+            if user is None or user.subscription_tier != "pro":
+                continue
+
+            dedup_key = f"forgotten:{sub.id}:{date.today().isocalendar()[1]}"
+            if await _is_already_notified(dedup_key):
+                continue
+
+            amount = float(sub.amount)
+            last_activity = sub.last_usage_detected.date().isoformat() if sub.last_usage_detected else "unknown"
+            days_inactive = (date.today() - sub.last_usage_detected.date()).days if sub.last_usage_detected else 90
+
+            title = f"Still using {sub.name}?"
+            body = f"{sub.name} (${amount:.2f}/mo) — no activity for {days_inactive} days."
+
+            alert = await _create_alert(
+                db=db,
+                tenant_id=sub.tenant_id,
+                user_id=sub.user_id,
+                alert_type="unused_subscription",
+                severity="info",
+                title=title,
+                message=body,
+                amount=sub.amount,
+                subscription_id=sub.id,
+            )
+
+            if _user_wants_notification(user, "forgotten_subscriptions"):
+                payload = NotificationPayload(
+                    title=title,
+                    body=body,
+                    notification_type="unused_subscription",
+                    subscription_id=str(sub.id),
+                )
+                success = await notification_service.send_to_user(
+                    user_id=user.id,
+                    tenant_id=user.tenant_id,
+                    payload=payload,
+                )
+                if not success:
+                    alert.push_sent = False
+
+            if _user_wants_email_notification(user, "forgotten_subscriptions"):
+                email_dedup_key = f"email:forgotten:{sub.id}:{date.today().isocalendar()[1]}"
+                if not await _is_email_already_sent(email_dedup_key):
+                    try:
+                        from app.services.email_template_service import EmailTemplateService
+                        from app.services.email_sender_service import EmailSenderService
+
+                        content = EmailTemplateService.render_forgotten_subscription(
+                            subscription_name=sub.name,
+                            amount=amount,
+                            last_activity_date=last_activity,
+                            days_inactive=days_inactive,
+                        )
+                        if await EmailSenderService._send_email(
+                            user.email, content.subject, content.plain_body, content.html_body
+                        ):
+                            alert.email_sent = True
+                    except Exception as e:
+                        logger.warning("Failed to send forgotten subscription email: %s", e)
+
+            sent_count += 1
+
+        await db.commit()
+        logger.info("Sent %d forgotten subscription notifications", sent_count)
+    except Exception as e:
+        await db.rollback()
+        logger.error("Error sending forgotten subscription notifications: %s", e)
         raise
     finally:
         await db.close()

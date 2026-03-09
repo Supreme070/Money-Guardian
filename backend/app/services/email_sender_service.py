@@ -1,6 +1,6 @@
-"""Email sending service for verification and password reset emails.
+"""Email sending service for verification, password reset, and notification emails.
 
-Uses aiosmtplib for async SMTP email delivery.
+Routes through AWS SES (production) or SMTP (local dev) based on config.
 """
 
 import hashlib
@@ -22,8 +22,8 @@ class EmailSenderService:
     """
     Service for sending transactional emails.
 
-    Handles email verification and password reset flows.
-    Uses aiosmtplib for async delivery.
+    Handles email verification, password reset, and welcome flows.
+    Routes through AWS SES (production) or SMTP (dev) based on config.
     """
 
     def __init__(self, db: AsyncSession) -> None:
@@ -55,51 +55,12 @@ class EmailSenderService:
         await self.db.commit()
 
         # Build verification URL with the raw (unhashed) token
-        verify_url = (
-            f"{settings.frontend_url}/verify-email?token={token}"
-        )
+        verify_url = f"{settings.frontend_url}/verify-email?token={token}"
 
-        # Send email
-        subject = "Verify your Money Guardian account"
-        body = (
-            f"Welcome to Money Guardian!\n\n"
-            f"Please verify your email address by clicking the link below:\n\n"
-            f"{verify_url}\n\n"
-            f"This link expires in 24 hours.\n\n"
-            f"If you didn't create an account, you can safely ignore this email.\n\n"
-            f"— The Money Guardian Team"
-        )
+        from app.services.email_template_service import EmailTemplateService
 
-        html_body = f"""
-        <div style="font-family: 'Mulish', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
-            <div style="text-align: center; margin-bottom: 32px;">
-                <h1 style="color: #15294A; font-size: 24px; margin: 0;">Money Guardian</h1>
-                <p style="color: #797878; font-size: 14px;">Stop losing money to dumb fees.</p>
-            </div>
-            <div style="background: #F1F1F3; border-radius: 12px; padding: 32px;">
-                <h2 style="color: #1D2635; font-size: 20px; margin-top: 0;">Verify your email</h2>
-                <p style="color: #797878; line-height: 1.6;">
-                    Welcome! Please verify your email address to get started.
-                </p>
-                <div style="text-align: center; margin: 24px 0;">
-                    <a href="{verify_url}"
-                       style="display: inline-block; background: #375EFD; color: white;
-                              padding: 14px 32px; border-radius: 8px; text-decoration: none;
-                              font-weight: 700; font-size: 16px;">
-                        Verify Email
-                    </a>
-                </div>
-                <p style="color: #B9B9B9; font-size: 12px; text-align: center;">
-                    This link expires in 24 hours.
-                </p>
-            </div>
-            <p style="color: #B9B9B9; font-size: 12px; text-align: center; margin-top: 24px;">
-                If you didn't create an account, ignore this email.
-            </p>
-        </div>
-        """
-
-        return await self._send_email(email, subject, body, html_body)
+        content = EmailTemplateService.render_verification(verify_url)
+        return await self._send_email(email, content.subject, content.plain_body, content.html_body)
 
     async def send_password_reset_email(
         self,
@@ -127,46 +88,12 @@ class EmailSenderService:
         await self.db.commit()
 
         # Build reset URL with the raw (unhashed) token
-        reset_url = (
-            f"{settings.frontend_url}/reset-password?token={token}"
-        )
+        reset_url = f"{settings.frontend_url}/reset-password?token={token}"
 
-        subject = "Reset your Money Guardian password"
-        body = (
-            f"You requested a password reset for your Money Guardian account.\n\n"
-            f"Click the link below to set a new password:\n\n"
-            f"{reset_url}\n\n"
-            f"This link expires in 1 hour.\n\n"
-            f"If you didn't request this, you can safely ignore this email.\n\n"
-            f"— The Money Guardian Team"
-        )
+        from app.services.email_template_service import EmailTemplateService
 
-        html_body = f"""
-        <div style="font-family: 'Mulish', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
-            <div style="text-align: center; margin-bottom: 32px;">
-                <h1 style="color: #15294A; font-size: 24px; margin: 0;">Money Guardian</h1>
-            </div>
-            <div style="background: #F1F1F3; border-radius: 12px; padding: 32px;">
-                <h2 style="color: #1D2635; font-size: 20px; margin-top: 0;">Reset your password</h2>
-                <p style="color: #797878; line-height: 1.6;">
-                    You requested a password reset. Click below to set a new password.
-                </p>
-                <div style="text-align: center; margin: 24px 0;">
-                    <a href="{reset_url}"
-                       style="display: inline-block; background: #375EFD; color: white;
-                              padding: 14px 32px; border-radius: 8px; text-decoration: none;
-                              font-weight: 700; font-size: 16px;">
-                        Reset Password
-                    </a>
-                </div>
-                <p style="color: #B9B9B9; font-size: 12px; text-align: center;">
-                    This link expires in 1 hour.
-                </p>
-            </div>
-        </div>
-        """
-
-        return await self._send_email(email, subject, body, html_body)
+        content = EmailTemplateService.render_password_reset(reset_url)
+        return await self._send_email(email, content.subject, content.plain_body, content.html_body)
 
     async def verify_email_token(
         self,
@@ -202,7 +129,17 @@ class EmailSenderService:
         user.email_verification_token_expires_at = None
         await self.db.commit()
 
+        # Send welcome email after successful verification
+        await self._send_welcome_email(user.email, user.full_name)
+
         return True
+
+    async def _send_welcome_email(self, email: str, full_name: str | None) -> bool:
+        """Send a branded welcome email after email verification."""
+        from app.services.email_template_service import EmailTemplateService
+
+        content = EmailTemplateService.render_welcome(full_name or "there")
+        return await self._send_email(email, content.subject, content.plain_body, content.html_body)
 
     async def verify_password_reset_token(
         self,
@@ -241,11 +178,36 @@ class EmailSenderService:
         plain_body: str,
         html_body: str,
     ) -> bool:
-        """Send an email via SMTP.
+        """Send an email via SES or SMTP based on config.
 
-        Returns True only if the email was actually sent.
-        Returns False if SMTP is not configured or sending fails.
+        Routes through AWS SES when email_provider="ses",
+        falls back to aiosmtplib when email_provider="smtp".
         """
+        if settings.email_provider == "ses":
+            return await EmailSenderService._send_via_ses(to_email, subject, plain_body, html_body)
+        return await EmailSenderService._send_via_smtp(to_email, subject, plain_body, html_body)
+
+    @staticmethod
+    async def _send_via_ses(
+        to_email: str,
+        subject: str,
+        plain_body: str,
+        html_body: str,
+    ) -> bool:
+        """Send email via AWS SES v2."""
+        from app.services.ses_email_service import SESEmailService
+
+        result = await SESEmailService.send(to_email, subject, plain_body, html_body)
+        return result.success
+
+    @staticmethod
+    async def _send_via_smtp(
+        to_email: str,
+        subject: str,
+        plain_body: str,
+        html_body: str,
+    ) -> bool:
+        """Send email via SMTP (local dev fallback)."""
         if not settings.smtp_user or not settings.smtp_password:
             if settings.environment == "production":
                 logger.error(

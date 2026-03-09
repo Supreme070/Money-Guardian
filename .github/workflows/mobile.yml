@@ -43,13 +43,21 @@ jobs:
           cache: true
       - run: flutter pub get
       - run: flutter test --coverage
-      - name: Check coverage
+      - name: Enforce coverage threshold (60%)
         run: |
-          if [ -f coverage/lcov.info ]; then
-            echo "Coverage report generated"
-          else
-            echo "No coverage data — add tests"
+          if [ ! -f coverage/lcov.info ]; then
+            echo "ERROR: No coverage data generated. Add tests."
+            exit 1
           fi
+          sudo apt-get install -y lcov > /dev/null 2>&1
+          COVERAGE=$(lcov --summary coverage/lcov.info 2>&1 | grep -oP 'lines\.*:\s*\K[\d.]+')
+          echo "Line coverage: ${COVERAGE}%"
+          THRESHOLD=60
+          if [ "$(echo "$COVERAGE < $THRESHOLD" | bc -l)" -eq 1 ]; then
+            echo "FAIL: Coverage ${COVERAGE}% is below ${THRESHOLD}% threshold"
+            exit 1
+          fi
+          echo "PASS: Coverage ${COVERAGE}% meets ${THRESHOLD}% threshold"
 
   build-android:
     name: Build Android
@@ -75,7 +83,7 @@ jobs:
         with:
           name: android-release-${{ github.sha }}
           path: mobile/build/app/outputs/bundle/release/*.aab
-          retention-days: 14
+          retention-days: 30
 
   build-ios:
     name: Build iOS
@@ -92,4 +100,28 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
       - run: flutter pub get
-      - run: flutter build ios --release --no-codesign --dart-define=ENV=staging --obfuscate --split-debug-info=build/debug-info
+
+      # Fastlane Match for code signing (requires secrets to be configured)
+      - name: Install Fastlane
+        if: env.MATCH_PASSWORD != ''
+        run: gem install fastlane
+        env:
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+
+      - name: Setup code signing
+        if: env.MATCH_PASSWORD != ''
+        run: cd ios && fastlane match appstore --readonly
+        env:
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_AUTH }}
+
+      # Build with signing if certs available, without if not
+      - name: Build iOS (signed)
+        if: env.MATCH_PASSWORD != ''
+        run: flutter build ios --release --dart-define=ENV=staging --obfuscate --split-debug-info=build/debug-info
+        env:
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+
+      - name: Build iOS (unsigned - CI verification only)
+        if: env.MATCH_PASSWORD == ''
+        run: flutter build ios --release --no-codesign --dart-define=ENV=staging --obfuscate --split-debug-info=build/debug-info

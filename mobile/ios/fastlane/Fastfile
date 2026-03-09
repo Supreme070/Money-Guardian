@@ -1,0 +1,40 @@
+# Money Guardian iOS Fastlane configuration
+# See: https://docs.fastlane.tools/
+
+default_platform(:ios)
+
+platform :ios do
+  desc "Sync certificates and profiles from Match"
+  lane :sync_certs do
+    match(type: "appstore", readonly: true)
+  end
+
+  desc "Build and upload to TestFlight"
+  lane :beta do
+    sync_certs
+    build_app(
+      workspace: "Runner.xcworkspace",
+      scheme: "Runner",
+      export_method: "app-store",
+      output_directory: "../build/ios",
+    )
+    upload_to_testflight(
+      skip_waiting_for_build_processing: true,
+    )
+  end
+
+  desc "Build for App Store release"
+  lane :release do
+    sync_certs
+    build_app(
+      workspace: "Runner.xcworkspace",
+      scheme: "Runner",
+      export_method: "app-store",
+      output_directory: "../build/ios",
+    )
+    upload_to_app_store(
+      skip_screenshots: true,
+      skip_metadata: true,
+    )
+  end
+end

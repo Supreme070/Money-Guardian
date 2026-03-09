@@ -13,6 +13,7 @@ celery_app = Celery(
         "app.tasks.banking_tasks",
         "app.tasks.email_tasks",
         "app.tasks.notification_tasks",
+        "app.tasks.email_digest_tasks",
     ],
 )
 
@@ -61,5 +62,25 @@ celery_app.conf.beat_schedule = {
     "send-overdraft-warnings": {
         "task": "app.tasks.notification_tasks.send_overdraft_warnings",
         "schedule": 12 * 60 * 60,  # Every 12 hours
+    },
+    # Tier 2: Price increase notifications (Pro only, daily)
+    "send-price-increase-notifications": {
+        "task": "app.tasks.notification_tasks.send_price_increase_notifications",
+        "schedule": 86400,  # 24 hours
+    },
+    # Tier 2: Trial ending notifications (Pro only, every 12h)
+    "send-trial-ending-notifications": {
+        "task": "app.tasks.notification_tasks.send_trial_ending_notifications",
+        "schedule": 43200,  # 12 hours
+    },
+    # Tier 2: Forgotten subscription notifications (Pro only, weekly)
+    "send-forgotten-subscription-notifications": {
+        "task": "app.tasks.notification_tasks.send_forgotten_subscription_notifications",
+        "schedule": 604800,  # 7 days
+    },
+    # Weekly digest email (opt-in, Monday 8 AM UTC)
+    "send-weekly-digest": {
+        "task": "app.tasks.email_digest_tasks.send_weekly_digest",
+        "schedule": 604800,  # 7 days
     },
 }

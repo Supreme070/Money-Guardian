@@ -18,6 +18,8 @@ from app.models.user import User
 from app.models.bank_connection import BankConnection
 from app.schemas.webhook import (
     PlaidWebhookBody,
+    SNSMessage,
+    SNSNotificationPayload,
     StripeCheckoutSessionData,
     StripeInvoiceData,
     StripeSubscriptionData,
@@ -79,7 +81,7 @@ async def stripe_webhook(
             sig_header=stripe_signature,
             secret=settings.stripe_webhook_secret,
         )
-    except stripe.error.SignatureVerificationError:
+    except stripe.SignatureVerificationError:
         logger.warning("Stripe webhook signature verification failed")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -454,3 +456,96 @@ async def plaid_webhook(
             )
 
     return {"status": "ok"}
+
+
+# ---------------------------------------------------------------------------
+# AWS SNS / SES Bounce & Complaint Webhooks
+# ---------------------------------------------------------------------------
+
+_SNS_DEDUP_PREFIX = "mg:webhook_dedup:sns:"
+_SNS_DEDUP_TTL = 86_400  # 24 hours
+
+
+@router.post("/ses-notifications", status_code=status.HTTP_200_OK)
+async def ses_notifications(
+    request: Request,
+    db: DbSessionDep,
+) -> dict[str, str]:
+    """
+    Receive AWS SNS notifications for SES bounces and complaints.
+
+    Handles:
+    - SubscriptionConfirmation: Auto-confirms the SNS subscription
+    - Notification (Bounce/Permanent): Suppresses email for that user
+    - Notification (Complaint): Suppresses email for that user
+    """
+    import json as json_module
+
+    body = await request.body()
+    sns_message = SNSMessage.model_validate_json(body)
+
+    # Handle SNS subscription confirmation
+    if sns_message.Type == "SubscriptionConfirmation":
+        if sns_message.SubscribeURL:
+            import httpx
+
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                await client.get(sns_message.SubscribeURL)
+            logger.info("SNS subscription confirmed: %s", sns_message.MessageId)
+        return {"status": "ok"}
+
+    if sns_message.Type != "Notification":
+        logger.debug("Ignoring SNS message type: %s", sns_message.Type)
+        return {"status": "ok"}
+
+    # Dedup by MessageId
+    if await is_duplicate(sns_message.MessageId, prefix=_SNS_DEDUP_PREFIX, ttl=_SNS_DEDUP_TTL):
+        return {"status": "ok"}
+
+    # Parse the inner SES notification
+    try:
+        inner = json_module.loads(sns_message.Message)
+        notification = SNSNotificationPayload.model_validate(inner)
+    except (json_module.JSONDecodeError, Exception) as e:
+        logger.warning("Failed to parse SNS notification message: %s", e)
+        return {"status": "ok"}
+
+    if notification.notificationType == "Bounce" and notification.bounce:
+        if notification.bounce.bounceType == "Permanent":
+            for recipient in notification.bounce.bouncedRecipients:
+                await _suppress_user_email(db, recipient.emailAddress, "hard_bounce")
+            logger.warning(
+                "SES permanent bounce — suppressed %d recipient(s)",
+                len(notification.bounce.bouncedRecipients),
+            )
+        else:
+            logger.info("SES transient bounce (type=%s), not suppressing", notification.bounce.bounceType)
+
+    elif notification.notificationType == "Complaint" and notification.complaint:
+        for recipient in notification.complaint.complainedRecipients:
+            await _suppress_user_email(db, recipient.emailAddress, "complaint")
+        logger.warning(
+            "SES complaint — suppressed %d recipient(s)",
+            len(notification.complaint.complainedRecipients),
+        )
+
+    elif notification.notificationType == "Delivery":
+        logger.debug("SES delivery confirmation")
+
+    await mark_processed(sns_message.MessageId, prefix=_SNS_DEDUP_PREFIX, ttl=_SNS_DEDUP_TTL)
+    return {"status": "ok"}
+
+
+async def _suppress_user_email(db: AsyncSession, email: str, reason: str) -> None:
+    """Suppress email sending for a user by email address."""
+    result = await db.execute(
+        select(User).where(User.email == email)
+    )
+    user = result.scalar_one_or_none()
+    if user:
+        user.email_suppressed = True
+        user.email_suppressed_reason = reason
+        await db.commit()
+        logger.info("Email suppressed for %s (reason=%s)", email, reason)
+    else:
+        logger.warning("SNS notification for unknown email: %s", email)

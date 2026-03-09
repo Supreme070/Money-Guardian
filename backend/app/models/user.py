@@ -59,6 +59,10 @@ class User(Base, TenantMixin, TimestampMixin):
     push_notifications_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     email_notifications_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
 
+    # Email suppression (system-controlled — bounce/complaint from SES/SNS)
+    email_suppressed: Mapped[bool] = mapped_column(Boolean, default=False)
+    email_suppressed_reason: Mapped[str | None] = mapped_column(String(50), nullable=True)
+
     # Granular notification type preferences (JSONB)
     notification_preferences: Mapped[dict[str, bool]] = mapped_column(
         JSONB,

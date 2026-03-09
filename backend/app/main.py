@@ -25,15 +25,12 @@ logger = logging.getLogger(__name__)
 if settings.sentry_dsn:
     try:
         import sentry_sdk
-        from sentry_sdk.integrations.fastapi import FastApiIntegration
-        from sentry_sdk.integrations.celery import CeleryIntegration
 
         sentry_sdk.init(
             dsn=settings.sentry_dsn,
             environment=settings.environment,
             release=f"money-guardian-api@{settings.app_version}",
             traces_sample_rate=settings.sentry_traces_sample_rate,
-            integrations=[FastApiIntegration(), CeleryIntegration()],
             send_default_pii=False,
         )
         logger.info("Sentry initialized (environment=%s)", settings.environment)
@@ -82,6 +79,11 @@ def _validate_production_settings() -> None:
             raise RuntimeError(
                 "FATAL: ENCRYPTION_MASTER_KEY must be set in production. "
                 "Generate with: python -c \"import secrets; print(secrets.token_urlsafe(32))\""
+            )
+        if settings.email_provider == "ses" and not settings.aws_access_key_id:
+            raise RuntimeError(
+                "FATAL: AWS credentials required when EMAIL_PROVIDER=ses. "
+                "Set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY."
             )
         if settings.cors_origins == ["*"]:
             logger.warning(

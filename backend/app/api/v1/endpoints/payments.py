@@ -133,7 +133,7 @@ async def create_checkout_session(
 
         session = stripe.checkout.Session.create(**checkout_params)
 
-    except stripe.error.StripeError as e:
+    except stripe.StripeError as e:
         logger.error("Stripe checkout session creation failed: %s", e)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
@@ -183,7 +183,7 @@ async def create_billing_portal_session(
             customer=tenant.stripe_customer_id,
             return_url="moneyguardian://settings",
         )
-    except stripe.error.StripeError as e:
+    except stripe.StripeError as e:
         logger.error("Stripe billing portal creation failed: %s", e)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
@@ -230,7 +230,7 @@ async def get_subscription_status(
                 sub = subscriptions.data[0]
                 current_period_end = str(sub.current_period_end)
                 cancel_at_period_end = bool(sub.cancel_at_period_end)
-        except stripe.error.StripeError:
+        except stripe.StripeError:
             pass
 
     return SubscriptionStatusResponse(
