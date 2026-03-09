@@ -19,6 +19,8 @@ import {
   Tooltip,
 } from "recharts";
 import dayjs from "dayjs";
+import { useSSE } from "@/lib/sse";
+import LiveActivityFeed from "@/components/LiveActivityFeed";
 
 export default function DashboardPage() {
   const { data: overview, isLoading: overviewLoading } = useQuery({
@@ -35,6 +37,8 @@ export default function DashboardPage() {
     queryKey: ["users-recent"],
     queryFn: () => fetchUsers({ page: 1, page_size: 5 }),
   });
+
+  const { events, connected } = useSSE("/api/v1/admin/sse/dashboard");
 
   if (overviewLoading) {
     return <Spin size="large" style={{ display: "block", margin: "100px auto" }} />;
@@ -148,67 +152,74 @@ export default function DashboardPage() {
       </Row>
 
       <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
-        <Col xs={24} lg={14}>
-          <Card title="Signups (Last 14 Days)">
-            {chartData && chartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={260}>
-                <AreaChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis allowDecimals={false} />
-                  <Tooltip />
-                  <Area
-                    type="monotone"
-                    dataKey="signups"
-                    stroke="#375EFD"
-                    fill="#375EFD"
-                    fillOpacity={0.15}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            ) : (
-              <Typography.Text type="secondary">No signup data yet</Typography.Text>
-            )}
-          </Card>
+        <Col xs={24} lg={16}>
+          <Row gutter={[16, 16]}>
+            <Col span={24}>
+              <Card title="Signups (Last 14 Days)">
+                {chartData && chartData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={260}>
+                    <AreaChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="date" />
+                      <YAxis allowDecimals={false} />
+                      <Tooltip />
+                      <Area
+                        type="monotone"
+                        dataKey="signups"
+                        stroke="#375EFD"
+                        fill="#375EFD"
+                        fillOpacity={0.15}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <Typography.Text type="secondary">No signup data yet</Typography.Text>
+                )}
+              </Card>
+            </Col>
+            <Col span={24}>
+              <Card title="Recent Signups">
+                <Table
+                  dataSource={recentUsers?.users}
+                  rowKey="id"
+                  pagination={false}
+                  size="small"
+                  columns={[
+                    {
+                      title: "Email",
+                      dataIndex: "email",
+                      ellipsis: true,
+                    },
+                    {
+                      title: "Tier",
+                      dataIndex: "tier",
+                      width: 80,
+                      render: (tier: string) => (
+                        <span
+                          style={{
+                            color: tier === "pro" ? "#FBBD5C" : tier === "enterprise" ? "#375EFD" : undefined,
+                            fontWeight: tier !== "free" ? 600 : undefined,
+                          }}
+                        >
+                          {tier}
+                        </span>
+                      ),
+                    },
+                    {
+                      title: "Joined",
+                      dataIndex: "created_at",
+                      width: 100,
+                      render: (v: string) => dayjs(v).format("MMM D"),
+                    },
+                  ]}
+                />
+              </Card>
+            </Col>
+          </Row>
         </Col>
 
-        <Col xs={24} lg={10}>
-          <Card title="Recent Signups">
-            <Table
-              dataSource={recentUsers?.users}
-              rowKey="id"
-              pagination={false}
-              size="small"
-              columns={[
-                {
-                  title: "Email",
-                  dataIndex: "email",
-                  ellipsis: true,
-                },
-                {
-                  title: "Tier",
-                  dataIndex: "tier",
-                  width: 80,
-                  render: (tier: string) => (
-                    <span
-                      style={{
-                        color: tier === "pro" ? "#FBBD5C" : tier === "enterprise" ? "#375EFD" : undefined,
-                        fontWeight: tier !== "free" ? 600 : undefined,
-                      }}
-                    >
-                      {tier}
-                    </span>
-                  ),
-                },
-                {
-                  title: "Joined",
-                  dataIndex: "created_at",
-                  width: 100,
-                  render: (v: string) => dayjs(v).format("MMM D"),
-                },
-              ]}
-            />
-          </Card>
+        <Col xs={24} lg={8}>
+          <LiveActivityFeed events={events} connected={connected} />
         </Col>
       </Row>
     </>

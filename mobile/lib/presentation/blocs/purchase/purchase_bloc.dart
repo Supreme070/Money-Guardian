@@ -25,6 +25,7 @@ class PurchaseBloc extends Bloc<PurchaseEvent, PurchaseState> {
     on<PurchaseLoginRequested>(_onLoginRequested);
     on<PurchaseLogoutRequested>(_onLogoutRequested);
     on<PurchaseCustomerInfoUpdated>(_onCustomerInfoUpdated);
+    on<PurchaseSyncRequested>(_onSyncRequested);
   }
 
   Future<void> _onInitializeRequested(
@@ -255,6 +256,24 @@ class PurchaseBloc extends Bloc<PurchaseEvent, PurchaseState> {
       emit(currentState.copyWith(customerInfo: customerInfo));
     } catch (_) {
       // Silently ignore errors from stream updates
+    }
+  }
+
+  Future<void> _onSyncRequested(
+    PurchaseSyncRequested event,
+    Emitter<PurchaseState> emit,
+  ) async {
+    // Trigger a customer info refresh from RevenueCat to confirm entitlements.
+    // The AuthBloc handles backend profile refresh separately (dispatched
+    // from main.dart's BlocListener on PurchaseSuccess/PurchaseRestoreSuccess).
+    try {
+      final customerInfo = await _purchaseRepository.getCustomerInfo();
+      final currentState = state;
+      if (currentState is PurchaseLoaded) {
+        emit(currentState.copyWith(customerInfo: customerInfo));
+      }
+    } catch (_) {
+      // Non-fatal: the BlocListener in main.dart already refreshes auth
     }
   }
 

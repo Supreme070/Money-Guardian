@@ -50,6 +50,10 @@ sentry-sdk[fastapi]==2.19.2
 # Serialization (fast JSON for cache)
 orjson==3.10.12
 
+# TOTP MFA
+pyotp==2.9.0
+qrcode==8.0
+
 # Utilities
 python-dotenv==1.0.1
 tenacity==9.0.0

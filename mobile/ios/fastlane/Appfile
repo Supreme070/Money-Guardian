@@ -1,0 +1,3 @@
+app_identifier("com.moneyguardian.app")
+# apple_id("your-apple-id@email.com") # Set via FASTLANE_USER env var
+# team_id("YOUR_TEAM_ID") # Set via FASTLANE_TEAM_ID env var

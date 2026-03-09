@@ -1,6 +1,7 @@
 """Celery application configuration."""
 
 from celery import Celery
+from celery.schedules import crontab
 
 from app.core.config import settings
 
@@ -14,6 +15,12 @@ celery_app = Celery(
         "app.tasks.email_tasks",
         "app.tasks.notification_tasks",
         "app.tasks.email_digest_tasks",
+        "app.tasks.retention_tasks",
+        "app.tasks.admin_tasks",
+        "app.tasks.health_score_tasks",
+        "app.tasks.bulk_tasks",
+        "app.tasks.export_tasks",
+        "app.tasks.approval_tasks",
     ],
 )
 
@@ -82,5 +89,20 @@ celery_app.conf.beat_schedule = {
     "send-weekly-digest": {
         "task": "app.tasks.email_digest_tasks.send_weekly_digest",
         "schedule": 604800,  # 7 days
+    },
+    # GDPR: Purge soft-deleted accounts after 30-day retention window (weekly)
+    "purge-deleted-accounts": {
+        "task": "app.tasks.retention_tasks.purge_deleted_accounts",
+        "schedule": 604800,  # 7 days
+    },
+    # Compute customer health scores daily at 3:00 AM UTC
+    "compute-daily-health-scores": {
+        "task": "app.tasks.health_score_tasks.compute_daily_health_scores",
+        "schedule": crontab(hour=3, minute=0),
+    },
+    # Expire stale approval requests every hour
+    "expire-stale-approvals": {
+        "task": "app.tasks.approval_tasks.expire_stale_approvals",
+        "schedule": 3600,  # 1 hour
     },
 }

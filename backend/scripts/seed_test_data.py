@@ -52,7 +52,7 @@ async def seed_data():
         user = User(
             id=user_id,
             tenant_id=tenant_id,
-            email="test@moneyguardian.app",
+            email="test@moneyguardian.co",
             hashed_password=hash_password("Test123!"),
             full_name="Test User",
             is_active=True,
@@ -226,7 +226,7 @@ async def seed_data():
         print("="*50)
         print(f"\nTenant ID: {tenant_id}")
         print(f"User ID: {user_id}")
-        print(f"Email: test@moneyguardian.app")
+        print(f"Email: test@moneyguardian.co")
         print(f"Password: Test123!")
         print(f"\nSubscriptions: {len(subscriptions_data)}")
         print(f"Alerts: {len(alerts_data)}")

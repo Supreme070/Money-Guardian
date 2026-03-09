@@ -15,10 +15,13 @@ import {
   Space,
   Statistic,
 } from "antd";
-import { ArrowLeftOutlined } from "@ant-design/icons";
+import { ArrowLeftOutlined, DollarOutlined } from "@ant-design/icons";
+import DestructiveActionGuard from "@/components/DestructiveActionGuard";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchTenantDetail, updateTenantStatus, overrideTenantTier } from "@/lib/api";
+import { useAdminAuth } from "@/lib/adminAuth";
+import { PERMISSIONS } from "@/lib/permissions";
 import dayjs from "dayjs";
 
 export default function TenantDetailPage() {
@@ -26,6 +29,7 @@ export default function TenantDetailPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
+  const { hasPermission } = useAdminAuth();
   const [statusModalOpen, setStatusModalOpen] = useState(false);
   const [tierModalOpen, setTierModalOpen] = useState(false);
   const [newStatus, setNewStatus] = useState("suspended");
@@ -115,12 +119,35 @@ export default function TenantDetailPage() {
 
             <Space style={{ marginTop: 16 }}>
               <Button onClick={() => setTierModalOpen(true)}>Change Tier</Button>
-              <Button
-                danger={tenant.status === "active"}
-                onClick={() => setStatusModalOpen(true)}
+              <DestructiveActionGuard
+                action="tenant.status_change"
+                entityType="tenant"
+                entityId={tenantId!}
+                onExecute={() => setStatusModalOpen(true)}
               >
-                {tenant.status === "active" ? "Suspend" : "Change Status"}
-              </Button>
+                {({ guard }) => (
+                  <Button
+                    danger={tenant.status === "active"}
+                    onClick={() =>
+                      guard({
+                        reason: tenant.status === "active"
+                          ? "Tenant suspension requested"
+                          : "Tenant status change requested",
+                      })
+                    }
+                  >
+                    {tenant.status === "active" ? "Suspend" : "Change Status"}
+                  </Button>
+                )}
+              </DestructiveActionGuard>
+              {hasPermission(PERMISSIONS.BILLING_MANAGE) && (
+                <Button
+                  icon={<DollarOutlined />}
+                  onClick={() => navigate(`/billing/${tenantId}`)}
+                >
+                  Billing
+                </Button>
+              )}
             </Space>
           </Card>
         </Col>

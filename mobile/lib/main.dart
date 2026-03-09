@@ -28,6 +28,9 @@ import 'presentation/blocs/alerts/alert_bloc.dart';
 import 'presentation/blocs/banking/banking_bloc.dart';
 import 'presentation/blocs/email_scanning/email_scanning_bloc.dart';
 import 'presentation/blocs/email_scanning/email_scanning_event.dart';
+import 'presentation/blocs/purchase/purchase_bloc.dart';
+import 'presentation/blocs/purchase/purchase_event.dart';
+import 'presentation/blocs/purchase/purchase_state.dart';
 import 'src/theme/app_theme_provider.dart';
 import 'src/theme/theme.dart';
 import 'presentation/pages/main_screen.dart';
@@ -52,6 +55,7 @@ import 'src/pages/help_center_page.dart';
 import 'src/pages/contact_support_page.dart';
 import 'src/pages/privacy_policy_page.dart';
 import 'src/pages/terms_of_service_page.dart';
+import 'src/pages/export_data_page.dart';
 import 'l10n/generated/app_localizations.dart';
 
 void main() async {
@@ -323,6 +327,9 @@ class _MoneyGuardianAppState extends State<MoneyGuardianApp>
         BlocProvider<EmailScanningBloc>(
           create: (_) => getIt<EmailScanningBloc>(),
         ),
+        BlocProvider<PurchaseBloc>(
+          create: (_) => getIt<PurchaseBloc>(),
+        ),
       ],
       child: ListenableBuilder(
         listenable: widget.themeProvider,
@@ -346,7 +353,15 @@ class _MoneyGuardianAppState extends State<MoneyGuardianApp>
           ),
         ),
         themeMode: widget.themeProvider.themeMode,
-        home: BlocConsumer<AuthBloc, AuthState>(
+        home: BlocListener<PurchaseBloc, PurchaseState>(
+          listener: (context, purchaseState) {
+            if (purchaseState is PurchaseSuccess ||
+                purchaseState is PurchaseRestoreSuccess) {
+              // Refresh user profile to pick up tier changes from webhook
+              context.read<AuthBloc>().add(const AuthCheckRequested());
+            }
+          },
+          child: BlocConsumer<AuthBloc, AuthState>(
           listener: (context, state) {
             if (state is AuthAuthenticated) {
               // Register FCM token when authenticated
@@ -358,6 +373,10 @@ class _MoneyGuardianAppState extends State<MoneyGuardianApp>
                 name: 'tier',
                 value: state.user.subscriptionTier.name,
               );
+              // Initialize RevenueCat with user ID
+              context.read<PurchaseBloc>().add(PurchaseInitializeRequested(
+                appUserId: state.user.id,
+              ));
             }
           },
           builder: (context, state) {
@@ -370,6 +389,7 @@ class _MoneyGuardianAppState extends State<MoneyGuardianApp>
             }
             return const LoginPage();
           },
+        ),
         ),
         routes: <String, WidgetBuilder>{
           '/home': (_) => const MainScreen(),
@@ -392,6 +412,7 @@ class _MoneyGuardianAppState extends State<MoneyGuardianApp>
           '/contact': (_) => const ContactSupportPage(),
           '/privacy': (_) => const PrivacyPolicyPage(),
           '/terms': (_) => const TermsOfServicePage(),
+          '/export-data': (_) => const ExportDataPage(),
         },
         onGenerateRoute: (RouteSettings settings) {
           // Handle routes that need arguments

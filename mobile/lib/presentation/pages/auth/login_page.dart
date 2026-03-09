@@ -24,6 +24,7 @@ class _LoginPageState extends State<LoginPage> {
 
   bool _obscurePassword = true;
   bool _isRegisterMode = false;
+  bool _acceptedTerms = false;
 
   @override
   void initState() {
@@ -53,10 +54,24 @@ class _LoginPageState extends State<LoginPage> {
     final password = _passwordController.text;
 
     if (_isRegisterMode) {
+      if (!_acceptedTerms) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Please accept the Terms of Service and Privacy Policy',
+              style: GoogleFonts.mulish(fontWeight: FontWeight.w500),
+            ),
+            backgroundColor: LightColor.freeze,
+          ),
+        );
+        return;
+      }
       context.read<AuthBloc>().add(AuthRegisterRequested(
             email: email,
             password: password,
             fullName: _fullNameController.text.trim(),
+            acceptedTerms: true,
+            acceptedPrivacy: true,
           ));
     } else {
       context.read<AuthBloc>().add(AuthLoginRequested(
@@ -156,6 +171,61 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                         ),
                         
+                        if (_isRegisterMode) ...[
+                          const SizedBox(height: 16),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: Checkbox(
+                                  value: _acceptedTerms,
+                                  onChanged: isLoading
+                                      ? null
+                                      : (value) => setState(() => _acceptedTerms = value ?? false),
+                                  activeColor: LightColor.primary,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: () => setState(() => _acceptedTerms = !_acceptedTerms),
+                                  child: Text.rich(
+                                    TextSpan(
+                                      style: GoogleFonts.mulish(
+                                        fontSize: 13,
+                                        color: LightColor.textSecondary,
+                                      ),
+                                      children: [
+                                        const TextSpan(text: 'I agree to the '),
+                                        TextSpan(
+                                          text: 'Terms of Service',
+                                          style: GoogleFonts.mulish(
+                                            color: LightColor.primary,
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                        const TextSpan(text: ' and '),
+                                        TextSpan(
+                                          text: 'Privacy Policy',
+                                          style: GoogleFonts.mulish(
+                                            color: LightColor.primary,
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+
                         if (!_isRegisterMode)
                           Align(
                             alignment: Alignment.centerRight,

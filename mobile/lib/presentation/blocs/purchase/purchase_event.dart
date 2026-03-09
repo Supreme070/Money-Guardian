@@ -62,3 +62,8 @@ class PurchaseLogoutRequested extends PurchaseEvent {
 class PurchaseCustomerInfoUpdated extends PurchaseEvent {
   const PurchaseCustomerInfoUpdated();
 }
+
+/// Sync subscription tier with backend after purchase
+class PurchaseSyncRequested extends PurchaseEvent {
+  const PurchaseSyncRequested();
+}

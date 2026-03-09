@@ -108,13 +108,23 @@ class _SettingsPageState extends State<SettingsPage> {
 
                   const SizedBox(height: 32),
 
-                  // 4. Support
+                  // 4. Data & Privacy
+                  _buildSectionHeader('Data & Privacy'),
+                  const SizedBox(height: 16),
+                  _buildSettingsList([
+                    _SettingsItem(Icons.download_outlined, 'Export My Data', 'Download all your data', '/export-data'),
+                    _SettingsItem(Icons.privacy_tip_outlined, 'Privacy Policy', 'How we guard your data', '/privacy'),
+                    _SettingsItem(Icons.description_outlined, 'Terms of Service', 'Usage terms and conditions', '/terms'),
+                  ]),
+
+                  const SizedBox(height: 32),
+
+                  // 5. Support
                   _buildSectionHeader('Support'),
                   const SizedBox(height: 16),
                   _buildSettingsList([
                     _SettingsItem(Icons.help_outline, 'Help Center', 'Guides and troubleshooting', '/help'),
                     _SettingsItem(Icons.chat_bubble_outline, 'Contact Us', 'Chat with the Guardian team', '/contact'),
-                    _SettingsItem(Icons.privacy_tip_outlined, 'Privacy Policy', 'How we guard your data', '/privacy'),
                   ]),
                   
                   const SizedBox(height: 48),

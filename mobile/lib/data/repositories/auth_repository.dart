@@ -119,6 +119,15 @@ class AuthRepository {
     return MessageResponse.fromJson(response.data!);
   }
 
+  /// Export user data (GDPR Article 20 - Right to Data Portability)
+  /// Returns raw JSON map of all user data
+  Future<Map<String, dynamic>> exportUserData() async {
+    final response = await _apiClient.get<Map<String, dynamic>>(
+      ApiConfig.usersExport,
+    );
+    return response.data!;
+  }
+
   /// Request password reset
   /// Returns a message regardless of whether email exists (security)
   Future<MessageResponse> requestPasswordReset(

@@ -8,7 +8,7 @@
 #   - No other service on port 80
 #
 # Usage:
-#   bash deploy/init-ssl.sh api.moneyguardian.app admin.moneyguardian.app
+#   bash deploy/init-ssl.sh api.moneyguardian.co admin.moneyguardian.co
 # ────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
@@ -16,8 +16,8 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BACKEND_DIR="$(dirname "$SCRIPT_DIR")"
 
 # Default domains
-DOMAINS="${@:-api.moneyguardian.app admin.moneyguardian.app}"
-EMAIL="${CERTBOT_EMAIL:-admin@moneyguardian.app}"
+DOMAINS="${@:-api.moneyguardian.co admin.moneyguardian.co}"
+EMAIL="${CERTBOT_EMAIL:-admin@moneyguardian.co}"
 
 echo "=== SSL Certificate Setup ==="
 echo "Domains: $DOMAINS"

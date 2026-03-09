@@ -171,6 +171,23 @@ class EmailSenderService:
 
         return user
 
+    async def send_raw_email(
+        self,
+        to_email: str,
+        subject: str,
+        body_text: str,
+    ) -> bool:
+        """Send a plain-text email (used by admin notification service).
+
+        Returns True if sent successfully.
+        """
+        return await self._send_email(
+            to_email=to_email,
+            subject=subject,
+            plain_body=body_text,
+            html_body=f"<p>{body_text}</p>",
+        )
+
     @staticmethod
     async def _send_email(
         to_email: str,

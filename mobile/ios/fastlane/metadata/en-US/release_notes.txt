@@ -1,0 +1,9 @@
+Initial release of Money Guardian - your money protection system.
+
+- Daily Money Pulse with SAFE/CAUTION/FREEZE status
+- Automatic subscription detection and tracking
+- Smart alerts for upcoming charges and overdraft risk
+- Bank connection for real-time balance monitoring
+- Email scanning for hidden subscriptions
+- Calendar view of all upcoming payments
+- GDPR-compliant data export and deletion

@@ -80,6 +80,10 @@ class User(Base, TenantMixin, TimestampMixin):
     # Onboarding
     onboarding_completed: Mapped[bool] = mapped_column(Boolean, default=False)
 
+    # Legal consent tracking (GDPR/compliance)
+    terms_accepted_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    privacy_accepted_at: Mapped[datetime | None] = mapped_column(nullable=True)
+
     # Email verification
     email_verification_token: Mapped[str | None] = mapped_column(String(255), nullable=True)
     email_verification_token_expires_at: Mapped[datetime | None] = mapped_column(nullable=True)

@@ -31,7 +31,7 @@ abstract class RegisterModule {
   ///
   /// To get the pin for your server:
   /// ```
-  /// openssl s_client -connect api.moneyguardian.app:443 < /dev/null 2>/dev/null \
+  /// openssl s_client -connect api.moneyguardian.co:443 < /dev/null 2>/dev/null \
   ///   | openssl x509 -outform DER \
   ///   | openssl dgst -sha256 -binary \
   ///   | base64

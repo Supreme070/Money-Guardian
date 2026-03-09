@@ -78,6 +78,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           email: event.email,
           password: event.password,
           fullName: event.fullName,
+          acceptedTerms: event.acceptedTerms,
+          acceptedPrivacy: event.acceptedPrivacy,
         ),
       );
       final user = await _authRepository.getCurrentUser();

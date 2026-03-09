@@ -1,0 +1,43 @@
+Money Guardian is your personal money protection system. It watches your accounts so you don't have to, alerting you before overdrafts, forgotten subscriptions, and sneaky price increases drain your hard-earned cash.
+
+ONE GLANCE. FULL PICTURE.
+Open the app and instantly see your Daily Money Pulse -- a simple SAFE, CAUTION, or FREEZE status that tells you whether it's okay to spend today. No charts to study, no categories to review. Just a clear signal in under 5 seconds.
+
+STOP PAYING FOR THINGS YOU FORGOT ABOUT
+The average person wastes over $200/month on forgotten or unused subscriptions. Money Guardian detects every recurring charge across your bank accounts and email, then flags the ones you're not using. Duplicate Netflix accounts? That free trial you forgot to cancel? We catch it all.
+
+SMART ALERTS THAT ACTUALLY MATTER
+Most finance apps bombard you with notifications. Money Guardian stays quiet until something actually matters:
+- Upcoming charges before they hit your account
+- Overdraft risk warnings before you overspend
+- Price increases on your subscriptions
+- Free trials about to convert to paid plans
+- Unusual recurring charges
+
+BANK CONNECTION FOR REAL-TIME MONITORING
+Securely connect your bank accounts with read-only access through Plaid. Money Guardian never stores your banking credentials and cannot move your money. We simply watch your balances and transactions to keep you protected.
+
+EMAIL SCANNING FOR HIDDEN SUBSCRIPTIONS
+Connect your email to automatically find subscription receipts, renewal notices, and payment confirmations. Our AI scans for recurring payment patterns you might have missed in your bank statements.
+
+CALENDAR VIEW
+See exactly when money leaves your account with a clean calendar view. Plan your spending around your bills and subscriptions so you're never caught off guard.
+
+BUILT FOR YOUR PRIVACY
+- Read-only bank access (we cannot move your money)
+- Bank-level encryption for all data
+- GDPR-compliant with full data export and deletion
+- No data sold to third parties, ever
+
+THE MATH IS SIMPLE
+One avoided overdraft fee pays for Money Guardian for an entire year. One cancelled forgotten subscription saves you hundreds. This app pays for itself the first week.
+
+MONEY GUARDIAN PRO
+Upgrade to Pro for advanced features:
+- Unlimited bank account connections
+- AI-powered waste detection
+- Email subscription scanning
+- Priority alerts
+- Extended transaction history
+
+Download Money Guardian today and take control of where your money goes.

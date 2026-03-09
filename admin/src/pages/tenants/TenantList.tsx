@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { fetchTenants } from "@/lib/api";
 import type { AdminTenantListItem } from "@/lib/types";
+import BulkActionBar from "@/components/BulkActionBar";
 import dayjs from "dayjs";
 
 export default function TenantListPage() {
@@ -12,6 +13,7 @@ export default function TenantListPage() {
   const [pageSize, setPageSize] = useState(20);
   const [tierFilter, setTierFilter] = useState<string | undefined>();
   const [statusFilter, setStatusFilter] = useState<string | undefined>();
+  const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
 
   const { data, isLoading } = useQuery({
     queryKey: ["tenants", page, pageSize, tierFilter, statusFilter],
@@ -107,6 +109,10 @@ export default function TenantListPage() {
         columns={columns}
         rowKey="id"
         loading={isLoading}
+        rowSelection={{
+          selectedRowKeys,
+          onChange: (keys) => setSelectedRowKeys(keys as string[]),
+        }}
         pagination={{
           current: page,
           pageSize,
@@ -118,6 +124,12 @@ export default function TenantListPage() {
             setPageSize(ps);
           },
         }}
+      />
+
+      <BulkActionBar
+        selectedIds={selectedRowKeys}
+        entityType="tenant"
+        onClear={() => setSelectedRowKeys([])}
       />
     </>
   );

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../data/models/email_connection_model.dart';
 import '../../../presentation/blocs/email_scanning/email_scanning_bloc.dart';
@@ -10,6 +9,7 @@ import '../../../presentation/blocs/email_scanning/email_scanning_state.dart';
 import '../../../core/di/injection.dart';
 import '../../../core/services/analytics_service.dart';
 import '../../../src/theme/light_color.dart';
+import '../auth/oauth_webview_page.dart';
 
 class ConnectEmailPage extends StatefulWidget {
   const ConnectEmailPage({super.key});
@@ -20,6 +20,8 @@ class ConnectEmailPage extends StatefulWidget {
 
 class _ConnectEmailPageState extends State<ConnectEmailPage> {
   static const String _redirectUri = 'com.moneyguardian.app://oauth/callback';
+  static const String _redirectScheme = 'com.moneyguardian.app://';
+  EmailProvider? _currentProvider;
 
   @override
   void initState() {
@@ -29,10 +31,34 @@ class _ConnectEmailPageState extends State<ConnectEmailPage> {
   }
 
   void _connectEmail(EmailProvider provider) {
+    _currentProvider = provider;
     context.read<EmailScanningBloc>().add(EmailConnectRequested(
           provider: provider,
           redirectUri: _redirectUri,
         ));
+  }
+
+  Future<void> _openOAuthWebView({
+    required String authorizationUrl,
+    required EmailProvider provider,
+  }) async {
+    final OAuthResult? result = await Navigator.of(context).push<OAuthResult>(
+      MaterialPageRoute<OAuthResult>(
+        builder: (_) => OAuthWebViewPage(
+          authorizationUrl: authorizationUrl,
+          redirectScheme: _redirectScheme,
+        ),
+      ),
+    );
+
+    if (result != null && mounted) {
+      context.read<EmailScanningBloc>().add(EmailOAuthCompleteRequested(
+            provider: provider,
+            code: result.code,
+            redirectUri: _redirectUri,
+            state: result.state,
+          ));
+    }
   }
 
   @override
@@ -56,7 +82,12 @@ class _ConnectEmailPageState extends State<ConnectEmailPage> {
       body: BlocConsumer<EmailScanningBloc, EmailScanningState>(
         listener: (context, state) {
           if (state is EmailOAuthReady) {
-            launchUrl(Uri.parse(state.oauthUrl.authorizationUrl), mode: LaunchMode.externalApplication);
+            final EmailProvider provider =
+                _currentProvider ?? state.oauthUrl.provider;
+            _openOAuthWebView(
+              authorizationUrl: state.oauthUrl.authorizationUrl,
+              provider: provider,
+            );
           } else if (state is EmailConnectionSuccess) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Email connected successfully!'), backgroundColor: LightColor.safe),

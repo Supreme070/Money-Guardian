@@ -1,0 +1,8 @@
+Initial release of Money Guardian.
+
+- Daily Money Pulse status
+- Subscription tracking
+- Smart alerts
+- Bank connections
+- Email scanning
+- Calendar view

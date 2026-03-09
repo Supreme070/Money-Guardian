@@ -82,6 +82,11 @@ jobs:
         run: pytest tests/integration/ -v -m integration
         continue-on-error: false
 
+      - name: Run E2E tests
+        run: pytest tests/e2e/ -v --tb=short
+        env:
+          DATABASE_URL: postgresql+asyncpg://test:test@localhost:5432/money_guardian_test
+
   security:
     name: Dependency Audit
     runs-on: ubuntu-latest

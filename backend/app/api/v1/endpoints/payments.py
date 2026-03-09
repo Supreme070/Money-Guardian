@@ -193,6 +193,57 @@ async def create_billing_portal_session(
     return BillingPortalResponse(url=portal_session.url)
 
 
+@router.post("/sync", response_model=SubscriptionStatusResponse)
+async def sync_subscription_status(
+    current_user: CurrentUserDep,
+    db: DbSessionDep,
+) -> SubscriptionStatusResponse:
+    """
+    Sync subscription status after a mobile purchase.
+
+    Called by the mobile app after a successful RevenueCat/Stripe purchase
+    to refresh the user's tier from the backend. The actual tier change is
+    handled by the Stripe webhook -- this endpoint simply returns the
+    current status so the client can update its local state.
+    """
+    tier_service = TierService(db)
+    current_tier = await tier_service.get_tenant_tier(current_user.tenant_id)
+
+    from sqlalchemy import select
+    from app.models.tenant import Tenant
+
+    result = await db.execute(
+        select(Tenant).where(Tenant.id == current_user.tenant_id)
+    )
+    tenant = result.scalar_one_or_none()
+
+    current_period_end: str | None = None
+    cancel_at_period_end = False
+
+    if tenant and tenant.stripe_customer_id and settings.stripe_secret_key:
+        stripe.api_key = settings.stripe_secret_key
+        try:
+            subscriptions = stripe.Subscription.list(
+                customer=tenant.stripe_customer_id,
+                status="active",
+                limit=1,
+            )
+            if subscriptions.data:
+                sub = subscriptions.data[0]
+                current_period_end = str(sub.current_period_end)
+                cancel_at_period_end = bool(sub.cancel_at_period_end)
+        except stripe.StripeError:
+            pass
+
+    return SubscriptionStatusResponse(
+        tier=current_tier,
+        is_active=current_tier in ("pro", "enterprise"),
+        stripe_customer_id=tenant.stripe_customer_id if tenant else None,
+        current_period_end=current_period_end,
+        cancel_at_period_end=cancel_at_period_end,
+    )
+
+
 @router.get("/status", response_model=SubscriptionStatusResponse)
 async def get_subscription_status(
     current_user: CurrentUserDep,

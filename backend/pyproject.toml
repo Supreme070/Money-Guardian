@@ -30,4 +30,5 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 asyncio_mode = "auto"
 markers = [
     "integration: requires PostgreSQL and Redis services",
+    "e2e: end-to-end tests requiring PostgreSQL (full user journeys)",
 ]

@@ -53,7 +53,7 @@ class AppSecurity {
         bundleIds: ['com.moneyguardian.app'],
         teamId: appleTeamId,
       ),
-      watcherMail: 'security@moneyguardian.app',
+      watcherMail: 'security@moneyguardian.co',
       isProd: true,
     );
 

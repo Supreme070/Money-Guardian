@@ -311,7 +311,7 @@ async def delete_current_user(
     # Step 4: Scrub PII from user record, then deactivate
     # We keep the row for audit but strip all identifying information.
     now = datetime.now(timezone.utc)
-    user.email = f"deleted_{user.id}@deleted.moneyguardian.app"
+    user.email = f"deleted_{user.id}@deleted.moneyguardian.co"
     user.full_name = None
     user.hashed_password = "DELETED"
     user.is_active = False

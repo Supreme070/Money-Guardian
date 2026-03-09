@@ -114,7 +114,7 @@ class _ContactSupportPageState extends State<ContactSupportPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'support@moneyguardian.app',
+                          'support@moneyguardian.co',
                           style: GoogleFonts.mulish(
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
@@ -135,7 +135,7 @@ class _ContactSupportPageState extends State<ContactSupportPage> {
                   GestureDetector(
                     onTap: () {
                       Clipboard.setData(
-                        const ClipboardData(text: 'support@moneyguardian.app'),
+                        const ClipboardData(text: 'support@moneyguardian.co'),
                       );
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(

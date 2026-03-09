@@ -1,7 +1,8 @@
-import { Card, Typography, Row, Col, Tag, Statistic, Spin } from "antd";
+import { Card, Typography, Row, Col, Tag, Statistic, Spin, Badge } from "antd";
 import { CheckCircleOutlined, CloseCircleOutlined } from "@ant-design/icons";
 import { useQuery } from "@tanstack/react-query";
 import { fetchSystemHealth } from "@/lib/api";
+import { useSSE } from "@/lib/sse";
 
 export default function SystemHealthPage() {
   const { data, isLoading } = useQuery({
@@ -9,6 +10,8 @@ export default function SystemHealthPage() {
     queryFn: fetchSystemHealth,
     refetchInterval: 30000, // Refresh every 30s
   });
+
+  const { connected } = useSSE("/api/v1/admin/sse/monitoring");
 
   if (isLoading) {
     return <Spin size="large" style={{ display: "block", margin: "100px auto" }} />;
@@ -23,7 +26,14 @@ export default function SystemHealthPage() {
 
   return (
     <>
-      <Typography.Title level={4}>System Health</Typography.Title>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <Typography.Title level={4} style={{ margin: 0 }}>System Health</Typography.Title>
+        <Badge
+          status={connected ? "success" : "default"}
+          text={connected ? "Live" : "Polling"}
+          style={{ fontSize: 13 }}
+        />
+      </div>
 
       <Card style={{ marginBottom: 16 }}>
         <Statistic

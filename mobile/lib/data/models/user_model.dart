@@ -82,6 +82,8 @@ class UserModel {
   final SubscriptionTier subscriptionTier;
   final DateTime? subscriptionExpiresAt;
   final bool onboardingCompleted;
+  final DateTime? termsAcceptedAt;
+  final DateTime? privacyAcceptedAt;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -99,6 +101,8 @@ class UserModel {
     required this.subscriptionTier,
     this.subscriptionExpiresAt,
     required this.onboardingCompleted,
+    this.termsAcceptedAt,
+    this.privacyAcceptedAt,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -154,6 +158,12 @@ class UserModel {
           ? DateTime.parse(json['subscription_expires_at'] as String)
           : null,
       onboardingCompleted: json['onboarding_completed'] as bool? ?? false,
+      termsAcceptedAt: json['terms_accepted_at'] != null
+          ? DateTime.parse(json['terms_accepted_at'] as String)
+          : null,
+      privacyAcceptedAt: json['privacy_accepted_at'] != null
+          ? DateTime.parse(json['privacy_accepted_at'] as String)
+          : null,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
     );
@@ -173,6 +183,8 @@ class UserModel {
         'subscription_tier': subscriptionTier.toJson(),
         'subscription_expires_at': subscriptionExpiresAt?.toIso8601String(),
         'onboarding_completed': onboardingCompleted,
+        'terms_accepted_at': termsAcceptedAt?.toIso8601String(),
+        'privacy_accepted_at': privacyAcceptedAt?.toIso8601String(),
         'created_at': createdAt.toIso8601String(),
         'updated_at': updatedAt.toIso8601String(),
       };
@@ -192,6 +204,8 @@ class UserModel {
     SubscriptionTier? subscriptionTier,
     DateTime? subscriptionExpiresAt,
     bool? onboardingCompleted,
+    DateTime? termsAcceptedAt,
+    DateTime? privacyAcceptedAt,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -213,6 +227,8 @@ class UserModel {
       subscriptionExpiresAt:
           subscriptionExpiresAt ?? this.subscriptionExpiresAt,
       onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
+      termsAcceptedAt: termsAcceptedAt ?? this.termsAcceptedAt,
+      privacyAcceptedAt: privacyAcceptedAt ?? this.privacyAcceptedAt,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

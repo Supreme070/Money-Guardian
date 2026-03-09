@@ -3,8 +3,11 @@ import { Table, Input, Select, Tag, Typography, Space, Button } from "antd";
 import { SearchOutlined } from "@ant-design/icons";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { fetchUsers } from "@/lib/api";
-import type { AdminUserListItem } from "@/lib/types";
+import { fetchUsers, fetchHealthScores } from "@/lib/api";
+import type { AdminUserListItem, HealthScore } from "@/lib/types";
+import HealthScoreBadge from "@/components/HealthScoreBadge";
+import BulkActionBar from "@/components/BulkActionBar";
+import ExportButton from "@/components/ExportButton";
 import dayjs from "dayjs";
 
 const tierColors: Record<string, string> = {
@@ -20,6 +23,7 @@ export default function UserListPage() {
   const [search, setSearch] = useState("");
   const [tierFilter, setTierFilter] = useState<string | undefined>();
   const [statusFilter, setStatusFilter] = useState<boolean | undefined>();
+  const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
 
   const { data, isLoading } = useQuery({
     queryKey: ["users", page, pageSize, search, tierFilter, statusFilter],
@@ -32,6 +36,24 @@ export default function UserListPage() {
         is_active: statusFilter,
       }),
   });
+
+  // Fetch health scores (best-effort -- column is optional)
+  const { data: healthData } = useQuery({
+    queryKey: ["health-scores-summary"],
+    queryFn: () => fetchHealthScores({ page: 1, page_size: 500 }),
+    staleTime: 60_000,
+  });
+
+  const healthMap = new Map<string, HealthScore>();
+  if (healthData?.scores) {
+    for (const score of healthData.scores) {
+      // Keep the latest per user
+      const existing = healthMap.get(score.user_id);
+      if (!existing || score.snapshot_date > existing.snapshot_date) {
+        healthMap.set(score.user_id, score);
+      }
+    }
+  }
 
   const columns = [
     {
@@ -48,7 +70,7 @@ export default function UserListPage() {
       title: "Name",
       dataIndex: "full_name",
       ellipsis: true,
-      render: (v: string | null) => v || "—",
+      render: (v: string | null) => v || "\u2014",
     },
     {
       title: "Tier",
@@ -79,6 +101,20 @@ export default function UserListPage() {
       align: "center" as const,
     },
     {
+      title: "Health",
+      key: "health",
+      width: 80,
+      align: "center" as const,
+      render: (_: unknown, record: AdminUserListItem) => {
+        const score = healthMap.get(record.id);
+        return score ? (
+          <HealthScoreBadge score={score.score} risk_level={score.risk_level} />
+        ) : (
+          <Typography.Text type="secondary">--</Typography.Text>
+        );
+      },
+    },
+    {
       title: "Joined",
       dataIndex: "created_at",
       width: 110,
@@ -88,7 +124,10 @@ export default function UserListPage() {
 
   return (
     <>
-      <Typography.Title level={4}>Users</Typography.Title>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <Typography.Title level={4} style={{ margin: 0 }}>Users</Typography.Title>
+        <ExportButton exportType="users" label="Export CSV" />
+      </div>
 
       <Space style={{ marginBottom: 16 }} wrap>
         <Input
@@ -138,6 +177,10 @@ export default function UserListPage() {
         columns={columns}
         rowKey="id"
         loading={isLoading}
+        rowSelection={{
+          selectedRowKeys,
+          onChange: (keys) => setSelectedRowKeys(keys as string[]),
+        }}
         pagination={{
           current: page,
           pageSize,
@@ -149,6 +192,12 @@ export default function UserListPage() {
             setPageSize(ps);
           },
         }}
+      />
+
+      <BulkActionBar
+        selectedIds={selectedRowKeys}
+        entityType="user"
+        onClear={() => setSelectedRowKeys([])}
       />
     </>
   );

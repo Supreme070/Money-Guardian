@@ -83,7 +83,8 @@ class AuthService:
         self.db.add(tenant)
         await self.db.flush()  # Get tenant.id
 
-        # Create user
+        # Create user with consent timestamps
+        now = datetime.now(timezone.utc)
         user = User(
             tenant_id=tenant.id,
             email=request.email,
@@ -91,6 +92,8 @@ class AuthService:
             full_name=request.full_name,
             is_active=True,
             is_verified=False,
+            terms_accepted_at=now if request.accepted_terms else None,
+            privacy_accepted_at=now if request.accepted_privacy else None,
         )
         self.db.add(user)
         await self.db.flush()  # Get user.id

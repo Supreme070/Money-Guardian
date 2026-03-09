@@ -226,7 +226,7 @@ class _ConnectBankPageState extends State<ConnectBankPage> {
                       ),
                     );
                   } else if (value == 'disconnect') {
-                    // Disconnect logic
+                    _showDisconnectDialog(connection);
                   }
                 },
                 itemBuilder: (context) => [
@@ -288,9 +288,9 @@ class _ConnectBankPageState extends State<ConnectBankPage> {
       children: [
         _buildProviderTile('United States & Canada', 'Powered by Plaid', '🇺🇸', BankingProvider.plaid),
         const SizedBox(height: 12),
-        _buildProviderTile('Europe & UK', 'Powered by TrueLayer', '🇪🇺', BankingProvider.plaid), // Mocking other providers
+        _buildProviderTile('Europe & UK', 'Powered by TrueLayer', '🇪🇺', BankingProvider.truelayer),
         const SizedBox(height: 12),
-        _buildProviderTile('Nigeria & Ghana', 'Powered by Mono', '🇳🇬', BankingProvider.plaid),
+        _buildProviderTile('Nigeria & Ghana', 'Powered by Mono', '🇳🇬', BankingProvider.mono),
       ],
     );
   }
@@ -329,6 +329,60 @@ class _ConnectBankPageState extends State<ConnectBankPage> {
         ),
       ),
     );
+  }
+
+  void _showDisconnectDialog(BankConnectionModel connection) {
+    showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          'Disconnect Bank',
+          style: GoogleFonts.mulish(
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            color: LightColor.titleTextColor,
+          ),
+        ),
+        content: Text(
+          'Are you sure you want to disconnect ${connection.institutionName}? '
+          'Your synced transactions will remain, but new data will stop updating.',
+          style: GoogleFonts.mulish(
+            fontSize: 14,
+            color: LightColor.textSecondary,
+            height: 1.5,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.mulish(
+                color: LightColor.textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(
+              'Disconnect',
+              style: GoogleFonts.mulish(
+                color: LightColor.freeze,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    ).then((confirmed) {
+      if (confirmed == true && mounted) {
+        context.read<BankingBloc>().add(
+              BankingDisconnectRequested(connectionId: connection.id),
+            );
+      }
+    });
   }
 
   Widget _buildProRequiredView() {

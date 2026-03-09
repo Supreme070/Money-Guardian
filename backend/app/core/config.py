@@ -110,7 +110,7 @@ class Settings(BaseSettings):
         "http://localhost:8080",
         "http://127.0.0.1:3000",
         "http://127.0.0.1:8080",
-        "https://app.moneyguardian.app",
+        "https://app.moneyguardian.co",
     ]
 
     # Rate Limiting
@@ -125,7 +125,7 @@ class Settings(BaseSettings):
     aws_secret_access_key: str | None = None
     aws_region: str = "us-east-1"
     ses_configuration_set: str | None = None
-    ses_from_email: str = "noreply@moneyguardian.app"
+    ses_from_email: str = "noreply@moneyguardian.co"
     ses_from_name: str = "Money Guardian"
 
     # SMTP fallback (for local dev without AWS)
@@ -133,11 +133,11 @@ class Settings(BaseSettings):
     smtp_port: int = 587
     smtp_user: str | None = None
     smtp_password: str | None = None
-    smtp_from_email: str = "noreply@moneyguardian.app"
+    smtp_from_email: str = "noreply@moneyguardian.co"
     smtp_from_name: str = "Money Guardian"
 
     # App URLs (for email links)
-    frontend_url: str = "https://app.moneyguardian.app"
+    frontend_url: str = "https://app.moneyguardian.co"
     email_verify_url: str = "{frontend_url}/verify-email?token={token}"
     password_reset_url: str = "{frontend_url}/reset-password?token={token}"
 

@@ -81,7 +81,7 @@ class PrivacyPolicyPage extends StatelessWidget {
                 '• Delete: Delete your account and all associated data\n'
                 '• Portability: Export your subscription data\n'
                 '• Opt-out: Disable notifications and email scanning\n\n'
-                'To exercise these rights, contact support@moneyguardian.app',
+                'To exercise these rights, contact support@moneyguardian.co',
           ),
           _buildSection(
             'Data Retention',
@@ -90,8 +90,8 @@ class PrivacyPolicyPage extends StatelessWidget {
           _buildSection(
             'Contact',
             'For privacy-related inquiries:\n\n'
-                'Email: privacy@moneyguardian.app\n'
-                'Support: support@moneyguardian.app',
+                'Email: privacy@moneyguardian.co\n'
+                'Support: support@moneyguardian.co',
           ),
         ],
       ),

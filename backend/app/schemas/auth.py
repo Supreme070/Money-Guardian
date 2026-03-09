@@ -10,6 +10,28 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=8, max_length=128)
     full_name: str | None = Field(default=None, max_length=255)
+    accepted_terms: bool = Field(
+        ..., description="User must accept Terms of Service"
+    )
+    accepted_privacy: bool = Field(
+        ..., description="User must accept Privacy Policy"
+    )
+
+    @field_validator("accepted_terms")
+    @classmethod
+    def validate_terms(cls, v: bool) -> bool:
+        """Terms must be accepted to register."""
+        if not v:
+            raise ValueError("You must accept the Terms of Service")
+        return v
+
+    @field_validator("accepted_privacy")
+    @classmethod
+    def validate_privacy(cls, v: bool) -> bool:
+        """Privacy policy must be accepted to register."""
+        if not v:
+            raise ValueError("You must accept the Privacy Policy")
+        return v
 
     @field_validator("password")
     @classmethod

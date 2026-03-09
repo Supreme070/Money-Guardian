@@ -16,8 +16,8 @@ class ApiConfig {
 
   static const Map<String, String> _envUrls = {
     'dev': 'http://localhost:8000/api/v1',
-    'staging': 'https://staging-api.moneyguardian.app/api/v1',
-    'production': 'https://api.moneyguardian.app/api/v1',
+    'staging': 'https://staging-api.moneyguardian.co/api/v1',
+    'production': 'https://api.moneyguardian.co/api/v1',
   };
 
   /// Base URL for the API — resolved once at compile time.
@@ -42,6 +42,7 @@ class ApiConfig {
   static const String usersMe = '/users/me';
   static const String usersChangePassword = '/users/me/password';
   static const String usersDeleteMe = '/users/me';
+  static const String usersExport = '/users/me/export';
   static const String usersFcmToken = '/users/me/fcm-token';
 
   static const String subscriptions = '/subscriptions';

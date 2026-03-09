@@ -5,17 +5,23 @@ class RegisterRequest {
   final String email;
   final String password;
   final String? fullName;
+  final bool acceptedTerms;
+  final bool acceptedPrivacy;
 
   const RegisterRequest({
     required this.email,
     required this.password,
     this.fullName,
+    required this.acceptedTerms,
+    required this.acceptedPrivacy,
   });
 
   Map<String, dynamic> toJson() => {
         'email': email,
         'password': password,
         if (fullName != null) 'full_name': fullName,
+        'accepted_terms': acceptedTerms,
+        'accepted_privacy': acceptedPrivacy,
       };
 }
 

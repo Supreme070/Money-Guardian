@@ -44,6 +44,8 @@ class UserResponse(TimestampSchema, TenantSchema):
     subscription_tier: SubscriptionTierType = "free"
     subscription_expires_at: datetime | None = None
     onboarding_completed: bool = False
+    terms_accepted_at: datetime | None = None
+    privacy_accepted_at: datetime | None = None
 
 
 class UserUpdate(BaseModel):

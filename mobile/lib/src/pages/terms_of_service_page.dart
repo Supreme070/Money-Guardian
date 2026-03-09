@@ -94,8 +94,8 @@ class TermsOfServicePage extends StatelessWidget {
           _buildSection(
             '9. Contact',
             'For questions about these terms:\n\n'
-                'Email: legal@moneyguardian.app\n'
-                'Support: support@moneyguardian.app',
+                'Email: legal@moneyguardian.co\n'
+                'Support: support@moneyguardian.co',
           ),
         ],
       ),

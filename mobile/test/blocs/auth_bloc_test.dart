@@ -177,6 +177,8 @@ void main() {
           email: 'test@example.com',
           password: 'password123',
           fullName: 'Test User',
+          acceptedTerms: true,
+          acceptedPrivacy: true,
         ),
       ),
       expect: () => [
@@ -204,6 +206,8 @@ void main() {
         const AuthRegisterRequested(
           email: 'existing@example.com',
           password: 'password123',
+          acceptedTerms: true,
+          acceptedPrivacy: true,
         ),
       ),
       expect: () => [

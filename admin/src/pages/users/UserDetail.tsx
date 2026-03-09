@@ -24,16 +24,25 @@ import {
   fetchUserAlerts,
   fetchUserConnections,
   updateUserStatus,
+  impersonateUser,
+  fetchUserHealthHistory,
 } from "@/lib/api";
+import { useAdminAuth } from "@/lib/adminAuth";
+import { PERMISSIONS } from "@/lib/permissions";
+import { setImpersonation } from "@/components/ImpersonationBanner";
+import HealthScoreBadge from "@/components/HealthScoreBadge";
 import dayjs from "dayjs";
-import { ArrowLeftOutlined } from "@ant-design/icons";
+import { ArrowLeftOutlined, UserSwitchOutlined, NotificationOutlined } from "@ant-design/icons";
+import DestructiveActionGuard from "@/components/DestructiveActionGuard";
 
 export default function UserDetailPage() {
   const { userId } = useParams<{ userId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { hasPermission } = useAdminAuth();
   const [statusReason, setStatusReason] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
+  const [impersonateModalOpen, setImpersonateModalOpen] = useState(false);
 
   const { data: user, isLoading } = useQuery({
     queryKey: ["user-detail", userId],
@@ -59,6 +68,17 @@ export default function UserDetailPage() {
     enabled: !!userId,
   });
 
+  const { data: healthHistory } = useQuery({
+    queryKey: ["health-history", userId],
+    queryFn: () => fetchUserHealthHistory(userId!),
+    enabled: !!userId,
+  });
+
+  const latestHealth =
+    healthHistory && healthHistory.length > 0
+      ? healthHistory[healthHistory.length - 1]
+      : null;
+
   const statusMutation = useMutation({
     mutationFn: (body: { is_active: boolean; reason: string }) =>
       updateUserStatus(userId!, body),
@@ -68,6 +88,16 @@ export default function UserDetailPage() {
       setModalOpen(false);
       setStatusReason("");
     },
+  });
+
+  const impersonateMutation = useMutation({
+    mutationFn: () => impersonateUser(userId!),
+    onSuccess: (data) => {
+      setImpersonation(data);
+      message.success(`Now impersonating ${data.user_email}`);
+      setImpersonateModalOpen(false);
+    },
+    onError: () => message.error("Failed to impersonate user"),
   });
 
   if (isLoading || !user) {
@@ -122,20 +152,74 @@ export default function UserDetailPage() {
               </Descriptions.Item>
             </Descriptions>
 
-            <div style={{ marginTop: 16 }}>
-              <Button
-                danger={user.is_active}
-                type={user.is_active ? "default" : "primary"}
-                onClick={() => setModalOpen(true)}
-              >
-                {user.is_active ? "Deactivate User" : "Activate User"}
-              </Button>
-            </div>
+            <Space style={{ marginTop: 16 }}>
+              {user.is_active ? (
+                <DestructiveActionGuard
+                  action="user.deactivate"
+                  entityType="user"
+                  entityId={userId!}
+                  onExecute={() => setModalOpen(true)}
+                >
+                  {({ guard }) => (
+                    <Button
+                      danger
+                      onClick={() => guard({ reason: "User deactivation requested" })}
+                    >
+                      Deactivate User
+                    </Button>
+                  )}
+                </DestructiveActionGuard>
+              ) : (
+                <Button
+                  type="primary"
+                  onClick={() => setModalOpen(true)}
+                >
+                  Activate User
+                </Button>
+              )}
+              {hasPermission(PERMISSIONS.IMPERSONATE) && (
+                <Button
+                  danger
+                  icon={<UserSwitchOutlined />}
+                  onClick={() => setImpersonateModalOpen(true)}
+                >
+                  Impersonate User
+                </Button>
+              )}
+              {hasPermission(PERMISSIONS.NOTIFICATIONS_SEND) && (
+                <Button
+                  icon={<NotificationOutlined />}
+                  onClick={() => navigate(`/notifications/send?userId=${userId}`)}
+                >
+                  Send Notification
+                </Button>
+              )}
+            </Space>
           </Card>
         </Col>
 
         <Col xs={24} lg={8}>
           <Row gutter={[16, 16]}>
+            {latestHealth && (
+              <Col span={24}>
+                <Card>
+                  <Space align="center">
+                    <HealthScoreBadge
+                      score={latestHealth.score}
+                      risk_level={latestHealth.risk_level}
+                    />
+                    <div>
+                      <Typography.Text strong>Health Score</Typography.Text>
+                      <br />
+                      <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                        {latestHealth.risk_level.replace("_", " ")} &middot;{" "}
+                        {dayjs(latestHealth.snapshot_date).format("MMM D")}
+                      </Typography.Text>
+                    </div>
+                  </Space>
+                </Card>
+              </Col>
+            )}
             <Col span={12}>
               <Card>
                 <Statistic title="Subscriptions" value={user.subscription_count} />
@@ -330,6 +414,26 @@ export default function UserDetailPage() {
           onChange={(e) => setStatusReason(e.target.value)}
           rows={3}
         />
+      </Modal>
+
+      <Modal
+        title="Impersonate User"
+        open={impersonateModalOpen}
+        onCancel={() => setImpersonateModalOpen(false)}
+        onOk={() => impersonateMutation.mutate()}
+        okText="Start Impersonation"
+        okButtonProps={{
+          danger: true,
+          loading: impersonateMutation.isPending,
+        }}
+      >
+        <Typography.Paragraph>
+          Are you sure you want to impersonate <strong>{user.email}</strong>?
+        </Typography.Paragraph>
+        <Typography.Paragraph type="secondary">
+          This action is logged in the audit trail. You will receive a temporary
+          token to view the app as this user. The session will expire automatically.
+        </Typography.Paragraph>
       </Modal>
     </>
   );

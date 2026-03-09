@@ -274,6 +274,308 @@ export interface CeleryStatus {
 }
 
 // ---------------------------------------------------------------------------
+// Admin Auth
+// ---------------------------------------------------------------------------
+
+export type AdminRole = "super_admin" | "admin" | "support" | "viewer";
+
+export interface AdminLoginResponse {
+  access_token: string;
+  refresh_token: string;
+  token_type: "bearer";
+  requires_mfa: boolean;
+}
+
+export interface AdminTokenResponse {
+  access_token: string;
+  refresh_token: string;
+  token_type: "bearer";
+}
+
+export interface AdminProfile {
+  id: string;
+  email: string;
+  full_name: string;
+  role: AdminRole;
+  is_active: boolean;
+  mfa_enabled: boolean;
+  last_login_at: string | null;
+  created_at: string;
+}
+
+export interface AdminUserListResponse {
+  admin_users: AdminProfile[];
+  total_count: number;
+}
+
+// ---------------------------------------------------------------------------
+// Audit Log
+// ---------------------------------------------------------------------------
+
+export interface AuditLogEntry {
+  id: string;
+  admin_user_id: string | null;
+  admin_email: string | null;
+  admin_name: string | null;
+  action: string;
+  entity_type: string;
+  entity_id: string | null;
+  details: Record<string, string | number | boolean | null>;
+  ip_address: string;
+  created_at: string;
+}
+
+export interface AuditLogResponse {
+  entries: AuditLogEntry[];
+  total_count: number;
+  page: number;
+  page_size: number;
+}
+
+// ---------------------------------------------------------------------------
+// Notifications
+// ---------------------------------------------------------------------------
+
+export interface AdminNotification {
+  id: string;
+  admin_user_id: string;
+  notification_type: "push" | "email" | "both";
+  target_type: "user" | "tier" | "all";
+  target_ids: string[] | null;
+  target_tier: string | null;
+  title: string;
+  body: string;
+  sent_count: number;
+  failed_count: number;
+  status: "pending" | "sending" | "sent" | "failed";
+  created_at: string;
+}
+
+export interface NotificationListResponse {
+  notifications: AdminNotification[];
+  total_count: number;
+}
+
+// ---------------------------------------------------------------------------
+// Billing
+// ---------------------------------------------------------------------------
+
+export interface StripeCustomerInfo {
+  customer_id: string;
+  email: string;
+  name: string | null;
+  created: number;
+  default_payment_method: string | null;
+}
+
+export interface StripeSubscriptionInfo {
+  subscription_id: string;
+  status: string;
+  current_period_start: number;
+  current_period_end: number;
+  plan_amount: number;
+  plan_interval: string;
+  cancel_at_period_end: boolean;
+}
+
+export interface StripeInvoiceInfo {
+  invoice_id: string;
+  status: string;
+  amount_due: number;
+  amount_paid: number;
+  currency: string;
+  created: number;
+  hosted_invoice_url: string | null;
+}
+
+export interface TenantBillingResponse {
+  customer: StripeCustomerInfo | null;
+  subscription: StripeSubscriptionInfo | null;
+  invoices: StripeInvoiceInfo[];
+}
+
+export interface ImpersonationResponse {
+  access_token: string;
+  user_email: string;
+  user_name: string;
+  expires_in: number;
+}
+
+// ---------------------------------------------------------------------------
+// Feature Flags
+// ---------------------------------------------------------------------------
+
+export interface FeatureFlag {
+  id: string;
+  key: string;
+  name: string;
+  description: string | null;
+  is_enabled: boolean;
+  rollout_percentage: number;
+  target_tiers: string[] | null;
+  target_user_ids: string[] | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FeatureFlagListResponse {
+  flags: FeatureFlag[];
+  total_count: number;
+}
+
+// ---------------------------------------------------------------------------
+// Health Scores
+// ---------------------------------------------------------------------------
+
+export interface HealthScore {
+  user_id: string;
+  tenant_id: string;
+  score: number;
+  risk_level: "healthy" | "at_risk" | "churning";
+  factors: Record<string, number>;
+  snapshot_date: string;
+  created_at: string;
+}
+
+export interface HealthScoreListResponse {
+  scores: HealthScore[];
+  total_count: number;
+}
+
+// ---------------------------------------------------------------------------
+// Advanced Analytics (Cohort, Funnel, Retention)
+// ---------------------------------------------------------------------------
+
+export interface CohortData {
+  cohort_month: string;
+  month_offset: number;
+  retention_rate: number;
+  user_count: number;
+}
+
+export interface FunnelStep {
+  name: string;
+  count: number;
+  conversion_rate: number;
+}
+
+export interface RetentionPoint {
+  day: number;
+  retention_rate: number;
+  user_count: number;
+}
+
+// ---------------------------------------------------------------------------
+// Bulk Operations
+// ---------------------------------------------------------------------------
+
+export interface BulkOperation {
+  id: string;
+  admin_user_id: string;
+  operation_type: string;
+  target_count: number;
+  processed_count: number;
+  failed_count: number;
+  status: "pending" | "running" | "completed" | "failed" | "cancelled";
+  parameters: Record<string, unknown>;
+  result_url: string | null;
+  error_message: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+}
+
+export interface BulkOperationListResponse {
+  operations: BulkOperation[];
+  total_count: number;
+}
+
+// ---------------------------------------------------------------------------
+// SSE Events
+// ---------------------------------------------------------------------------
+
+export interface SSEDashboardEvent {
+  type: string;
+  data: Record<string, unknown>;
+  timestamp: string;
+}
+
+// ---------------------------------------------------------------------------
+// Approvals
+// ---------------------------------------------------------------------------
+
+export interface ApprovalRequest {
+  id: string;
+  requester_id: string;
+  requester_email: string;
+  requester_name: string;
+  approver_id: string | null;
+  action: string;
+  entity_type: string;
+  entity_id: string | null;
+  parameters: Record<string, unknown>;
+  status: "pending" | "approved" | "rejected" | "expired" | "executed";
+  reason: string;
+  review_note: string | null;
+  expires_at: string;
+  reviewed_at: string | null;
+  executed_at: string | null;
+  created_at: string;
+}
+
+export interface ApprovalListResponse {
+  requests: ApprovalRequest[];
+  total_count: number;
+  pending_count: number;
+}
+
+// ---------------------------------------------------------------------------
+// Webhooks
+// ---------------------------------------------------------------------------
+
+export interface WebhookEvent {
+  id: string;
+  provider: string;
+  event_type: string;
+  event_id: string;
+  payload_hash: string | null;
+  status: "received" | "processed" | "failed" | "ignored";
+  processing_time_ms: number | null;
+  error_message: string | null;
+  created_at: string;
+}
+
+export interface WebhookEventListResponse {
+  events: WebhookEvent[];
+  total_count: number;
+}
+
+export interface WebhookStats {
+  total_events: number;
+  by_provider: Record<string, number>;
+  by_status: Record<string, number>;
+  avg_processing_time_ms: number;
+}
+
+// ---------------------------------------------------------------------------
+// Search
+// ---------------------------------------------------------------------------
+
+export interface SearchResult {
+  entity_type: string;
+  entity_id: string;
+  title: string;
+  subtitle: string;
+  match_field: string;
+}
+
+export interface SearchResponse {
+  results: SearchResult[];
+  total_count: number;
+}
+
+// ---------------------------------------------------------------------------
 // Legacy (stats)
 // ---------------------------------------------------------------------------
 
