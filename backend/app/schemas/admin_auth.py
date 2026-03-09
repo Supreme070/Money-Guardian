@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 _ADMIN_CONFIG = ConfigDict(
     from_attributes=True,
@@ -28,6 +28,16 @@ class AdminLoginRequest(BaseModel):
     model_config = _ADMIN_CONFIG
     email: str = Field(..., max_length=255)
     password: str = Field(..., min_length=8, max_length=128)
+
+    @field_validator("email")
+    @classmethod
+    def validate_login_email_domain(cls, v: str) -> str:
+        domain = v.rsplit("@", 1)[-1].lower()
+        if domain != ALLOWED_ADMIN_DOMAIN:
+            raise ValueError(
+                f"Admin accounts must use @{ALLOWED_ADMIN_DOMAIN} email addresses"
+            )
+        return v.lower()
 
 
 class AdminLoginResponse(BaseModel):
@@ -84,12 +94,25 @@ class AdminProfileResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+ALLOWED_ADMIN_DOMAIN = "moneyguardian.co"
+
+
 class AdminUserCreateRequest(BaseModel):
     model_config = _ADMIN_CONFIG
     email: str = Field(..., max_length=255)
     password: str = Field(..., min_length=12, max_length=128)
     full_name: str = Field(..., min_length=1, max_length=255)
     role: AdminRole
+
+    @field_validator("email")
+    @classmethod
+    def validate_admin_email_domain(cls, v: str) -> str:
+        domain = v.rsplit("@", 1)[-1].lower()
+        if domain != ALLOWED_ADMIN_DOMAIN:
+            raise ValueError(
+                f"Admin accounts must use @{ALLOWED_ADMIN_DOMAIN} email addresses"
+            )
+        return v.lower()
 
 
 class AdminUserUpdateRequest(BaseModel):

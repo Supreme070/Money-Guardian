@@ -158,7 +158,15 @@ export default function AdminUsersPage() {
           <Form.Item
             name="email"
             label="Email"
-            rules={[{ required: true, type: "email" }]}
+            rules={[
+              { required: true, type: "email" },
+              {
+                validator: (_, value: string) =>
+                  value && value.endsWith("@moneyguardian.co")
+                    ? Promise.resolve()
+                    : Promise.reject("Must use @moneyguardian.co email"),
+              },
+            ]}
           >
             <Input prefix={<UserOutlined />} placeholder="admin@moneyguardian.co" />
           </Form.Item>
